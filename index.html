@@ -462,6 +462,11 @@ table.t { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .combo .opt { padding: 7px 10px; cursor: pointer; display: flex; gap: 10px; font-size: 13px; }
 .combo .opt .code { color: var(--muted); font-size: 12px; min-width: 64px; }
 .combo .opt.hi, .combo .opt:hover { background: var(--accent-soft); }
+/* 5.2-ի քաղաքը՝ անունը և նորմը (երկու տող), վերջում՝ «Այլ քաղաք» */
+.city-pick .list { max-height: 320px; }
+.combo .opt.city-opt { flex-direction: column; gap: 1px; line-height: 1.35; }
+.combo .opt.city-opt .small { font-size: 12px; }
+.combo .opt.city-opt.other { border-top: 1px solid var(--line); }
 
 /* ---------- Modal & toast ---------- */
 .modal-bg { position: fixed; inset: 0; z-index: 80; background: var(--scrim); display: grid; place-items: center; padding: 16px; }
@@ -917,7 +922,7 @@ input.bad { border-color: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, v
 <noscript><p style="padding:24px">Numetrix HR-ը աշխատում է միայն JavaScript-ով։</p></noscript>
 <script>window.NHR_SITE = true;</script>
 <script src="config.js"></script>
-<script>window.NHR_BUILD = '7af6d0a135';</script>
+<script>window.NHR_BUILD = 'e3a025c316';</script>
 <script>
 /* Numetrix HR — ընդհանուր տեղեկատուներ, որոնք եկել են ՀԾ-ից կամ ստանդարտից։
    Համայնքներ՝ 930 տող ՀԾ-ի նկարներից (առանց ԼՂՀ-ի), երկրներ՝ ISO 3166 թվային կոդեր։ */
@@ -4394,10 +4399,15 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
      Նախ՝ «Կարգավորումներ → Գործուղում»-ում ձեռքով ավելացված տողերը, հետո՝ ներկառուցված ցանկը (գործում է from-ից)։ */
   const cityKey = (s) => NHR.cityBare(s).toLowerCase();
   const inSeason = (r, md) => !r.season || !r.season.length || r.season.some(([a, b]) => (a <= b ? md >= a && md <= b : md >= a || md <= b));
-  NHR.tripForeignNorm = (country, city, date) => {
+  /* note՝ քաղաքի տարբերակը, եթե ցանկում նույն քաղաքը երկու անգամ է (օր.՝ «Պրասլին» և «Պրասլին (արշիպելագ)») */
+  NHR.tripForeignNorm = (country, city, date, note) => {
     if (!country) return null;
-    const c = cityKey(city), md = (date || today()).slice(5, 10);
-    const byCity = (arr) => arr.filter(r => cityKey(r.city) === c || (r.cityEn && cityKey(r.cityEn) === c));
+    const c = cityKey(city), md = (date || today()).slice(5, 10), nk = String(note || '').trim();
+    const byCity = (arr) => {
+      const a = arr.filter(r => cityKey(r.city) === c || (r.cityEn && cityKey(r.cityEn) === c));
+      const b = nk ? a.filter(r => (r.note || '') === nk) : [];
+      return b.length ? b : a;
+    };
     const best = (arr) => arr.filter(r => inSeason(r, md)).sort((a, b) => (a.note ? 1 : 0) - (b.note ? 1 : 0))[0] || null;
     /* Քաղաքի տողը (այդ թվում՝ առանց պետության Երուսաղեմը, country '*') և երկրի մնացած տարածքի տողը */
     const cityRow = (rows) => c ? best(byCity(rows.filter(r => r.country === country))) || best(byCity(rows.filter(r => r.country === '*'))) : null;
@@ -4408,6 +4418,25 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       const r = f(rows); if (r) return Object.assign({ src }, r);
     }
     return null;
+  };
+  /* Երկրի քաղաքները՝ 5.2-ի «Քաղաք» ցուցակի համար. ձեռքով ավելացվածները (առաջնահերթ են), ապա ցանկից՝ առանց կրկնության
+     (սեզոնային տողերը՝ մեկ անգամ, նույն քաղաքի տարբեր նշումներով տողերը՝ առանձին)։ Երուսաղեմը ցանկում առանց պետության է՝
+     առաջարկվում է Իսրայելի և Պաղեստինի համար */
+  const JERUSALEM_IN = ['376', '275'];
+  NHR.tripCities = (country) => {
+    if (!country) return [];
+    const L = window.NHR_TRIP_FOREIGN || { rows: [] }, M = St().tripForeign || [];
+    const out = [], manual = new Set(), seen = new Set();
+    M.filter(r => r.country === country && cityKey(r.city)).forEach(r => {
+      const k = cityKey(r.city); if (manual.has(k)) return;
+      manual.add(k); out.push({ city: NHR.cityBare(r.city), en: '', note: '', manual: true });
+    });
+    L.rows.filter(r => (r.country === country || (r.country === '*' && JERUSALEM_IN.includes(country))) && cityKey(r.city)).forEach(r => {
+      const k = cityKey(r.city), kk = k + '|' + (r.note || '');
+      if (manual.has(k) || seen.has(kk)) return;
+      seen.add(kk); out.push({ city: NHR.cityBare(r.city), en: r.cityEn || '', note: r.note || '' });
+    });
+    return out.sort((a, b) => a.city.localeCompare(b.city, 'hy') || a.note.localeCompare(b.note, 'hy'));
   };
   /* Երկրի բոլոր տողերը՝ կարգավորումների որոնման համար (ձեռքով ավելացվածները և ներկառուցված ցանկը) */
   NHR.tripForeignRows = (country) => {
@@ -4629,6 +4658,69 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
   const normText = (fn, cur) => { const v = NHR.normIn(fn, cur); return `Նորմ (${fn.src === 'manual' ? 'ձեռքով ավելացված տող' : 'ԱՍՀՆ ցանկ, 30.12.2025'}, ${fn.city ? `ք. ${fn.city}` : 'երկրի մնացած տարածք'})՝ օրապահիկ ${NHR.fmtMoney(v.perDiem)}, գիշերավարձ ${NHR.fmtMoney(v.lodging)} ${NHR.curName(v.currency || cur)}${NHR.normLabel(fn) ? ' ' + NHR.normLabel(fn) : ''}${v.currency && v.currency !== cur ? ` (ընտրված արժույթով՝ ${NHR.curName(cur)}՝ նորմ չկա)` : ''}։`; };
   /* Ինքնաշխատ նորմ՝ ընտրված արժույթով, եթե ցանկում կա, հակառակ դեպքում՝ ցանկի հիմնական արժույթով */
   const applyForeign = (obj, fn) => { const c0 = fn.alt && obj.currency === fn.alt.currency ? obj.currency : fn.currency; const v = NHR.normIn(fn, c0); obj.perDiem = v.perDiem; obj.lodging = v.lodging; obj.currency = c0; };
+  /* ---------- Քաղաքը (5.2)՝ ընտրված երկրի քաղաքները ցանկից ----------
+     Ամեն քաղաքը՝ իր նորմով (ըստ ամսաթվի), վերջում՝ «Այլ քաղաք» (երկրի մնացած տարածքի նորմով)։ Ընտրելիս օրապահիկը, գիշերավարձը
+     և արժույթը (ԱՄՆ դոլար, եվրո) լրացվում են ինքնաշխատ։ Կարելի է գրել նաև ցանկում չեղած քաղաքը՝ երկրի մնացած տարածքի նորմով */
+  const normShort = (fn) => !fn ? 'նորմը ցանկում չկա' : `օրապահիկ ${NHR.fmtMoney(fn.perDiem)} · գիշերավարձ ${NHR.fmtMoney(fn.lodging)} ${fn.currency}${fn.season && fn.season.length ? ` (${fn.seasonText || 'սեզոնային'})` : ''}`;
+  const cityLabel = (city, note) => (city ? city + (note ? ` (${note})` : '') : '');
+  NHR.tripCityHint = (country) => { const n = NHR.tripCities(country).length; return !country ? null : n ? `Ցանկում՝ ${n} քաղաք, իրենց նորմերով` : 'Ցանկում երկիրը մեկ նորմ ունի'; };
+  const cityPick = (obj, date, fk) => {
+    const has = !!obj.country, cur = cityLabel(NHR.cityBare(obj.city || ''), obj.cityNote);
+    const wrap = h('div', { class: 'combo city-pick' });
+    const input = h('input', { type: 'text', value: cur, disabled: has ? null : true, placeholder: has ? 'Ընտրեք ցանկից կամ գրեք' : 'Նախ ընտրեք երկիրը', autocomplete: 'off',
+      role: 'combobox', 'aria-expanded': 'false', 'aria-label': 'Քաղաք', 'data-fk': fk });
+    let list = null, hi = -1, items = [], done = false, typing = false;
+    const close = () => { if (list) { list.remove(); list = null; input.setAttribute('aria-expanded', 'false'); } };
+    const all = () => NHR.tripCities(obj.country).map(c => Object.assign({}, c, { fn: NHR.tripForeignNorm(obj.country, c.city, date, c.note) }));
+    /* գրված անունը՝ ցանկի քաղաքը (հայերեն կամ անգլերեն անունով), որ փաստաթղթում գրվի հայերենը */
+    const match = (v) => { const k = cityKey(v); return k ? all().find(c => cityKey(cityLabel(c.city, c.note)) === k) || all().find(c => !c.note && (cityKey(c.city) === k || (c.en && cityKey(c.en) === k))) || null : null; };
+    const commit = (city, note) => {
+      const c = NHR.cityBare(city || '').trim(), n = note || '';
+      if (c === NHR.cityBare(obj.city || '') && n === (obj.cityNote || '')) return false;
+      obj.city = c; obj.cityNote = n; obj.normAuto = true; return true;
+    };
+    const pick = (it) => {
+      close();
+      if (it.other) { commit('', ''); input.value = ''; input.placeholder = 'Գրեք քաղաքի անունը'; typing = true; input.focus(); return; }
+      done = true; commit(it.city, it.note); input.blur(); NHR.rerender();
+    };
+    const open = () => {
+      if (!has || typing) return;
+      const q = input.value.trim().toLowerCase(), any = !q || input.value === cur;
+      const rest = NHR.tripForeignNorm(obj.country, '', date), cities = all();
+      items = cities.filter(c => any || [c.city, c.en, c.note].some(x => x && x.toLowerCase().includes(q)));
+      items.push({ other: true, title: cities.length ? 'Այլ քաղաք՝ գրեք անունը' : 'Գրեք քաղաքի անունը',
+        sub: rest ? `${cities.length ? 'երկրի մնացած տարածք' : 'ամբողջ երկիրը'} · ${normShort(rest)}` : 'երկիրը ցանկում չկա․ նորմը՝ ձեռքով' });
+      close(); hi = items.length > 1 && !any ? 0 : -1;
+      list = h('div', { class: 'list', role: 'listbox' }, items.map((it, i) => h('div', { class: 'opt city-opt' + (it.other ? ' other' : '') + (i === hi ? ' hi' : ''), role: 'option',
+        onmousedown: (e) => { e.preventDefault(); pick(it); } },
+        it.other ? h('div', null, h('b', null, it.title)) : h('div', null, h('b', null, it.city), it.note ? h('span', null, ` (${it.note})`) : null,
+          it.en && it.en !== it.city ? h('span', { class: 'muted' }, ` · ${it.en}`) : null),
+        h('div', { class: 'small muted' }, it.other ? it.sub : normShort(it.fn)))));
+      wrap.appendChild(list); input.setAttribute('aria-expanded', 'true');
+    };
+    input.addEventListener('focus', open);
+    input.addEventListener('input', () => { typing = false; open(); });
+    input.addEventListener('blur', () => setTimeout(() => {
+      close(); typing = false;
+      if (done || input.value.trim() === cur) return;
+      const v = input.value.trim(), m = match(v);
+      if (m ? commit(m.city, m.note) : commit(v, '')) NHR.rerenderKeep();
+    }, 120));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { close(); return; }
+      if (e.key === 'Enter') { e.preventDefault(); if (list && hi >= 0 && items[hi]) pick(items[hi]); else input.blur(); return; }
+      if (!list || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+      e.preventDefault(); hi = Math.max(0, Math.min(items.length - 1, hi + (e.key === 'ArrowDown' ? 1 : -1)));
+      [...list.children].forEach((c, i) => c.classList.toggle('hi', i === hi)); if (list.children[hi]) list.children[hi].scrollIntoView({ block: 'nearest' });
+    });
+    wrap.appendChild(input);
+    return wrap;
+  };
+  NHR.tripCityPick = cityPick; // նաև «Կարգավորումներ → Գործուղում → Նորմի որոնում»
+  /* Երկիրը փոխելիս՝ քաղաքը մաքրվում է, նորմը՝ նորից ինքնաշխատ */
+  const countryPick = (obj, redraw) => { const c0 = obj.country;
+    return combo(obj, 'country', NHR.ref('countries').rows.filter(x => x.code !== '051'), { onChange: () => { if (obj.country !== c0) { obj.city = ''; obj.cityNote = ''; obj.normAuto = true; } redraw(); } }); };
   /* Օրապահիկի և գիշերավարձի դաշտերը, ճանապարհածախս, այլ ծախսեր (նոր գործուղման և երկարաձգման համար)․
      opts.place՝ մի քանի վայրի դեպքում առաջին վայրի անունը, opts.fn՝ առաջին վայրի նորմը */
   const costFields = (d, f, def, opts) => {
@@ -4648,7 +4740,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
   };
   /* Լրացուցիչ վայր (2-րդ, 3-րդ …)՝ վայրը, օրերը, գիշերները և նորմերը */
   const blankStop = (def) => def.domestic ? { region: '', commune: '', city: '', days: 1, nights: 1, currency: 'AMD', perDiem: '', lodging: '', normAuto: true }
-    : { country: '', city: '', days: 1, nights: 1, currency: 'USD', perDiem: '', lodging: '', normAuto: true };
+    : { country: '', city: '', cityNote: '', days: 1, nights: 1, currency: 'USD', perDiem: '', lodging: '', normAuto: true };
   const stopPanel = (f, s, i, def, info) => {
     const redraw = () => NHR.rerender(), keep = NHR.rerenderKeep, cur = NHR.curName(s.currency || 'AMD'), fk = (k) => `trip-s${i}-${k}`;
     const sin = (key, o) => { const el = inp(s, key, Object.assign({}, o, { onChange: keep })); el.dataset.fk = fk(key); return el; };
@@ -4657,8 +4749,8 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       s.region === YEREVAN ? null : field('Համայնք', combo(s, 'commune', NHR.ref('communes').rows, { filter: (x) => !s.region || x.region === s.region, onChange: redraw }), { req: true }),
       s.region === YEREVAN ? null : field('Բնակավայր', sin('city', { ph: 'եթե տարբեր է համայնքի անունից' }))
     ] : [
-      field('Երկիր', combo(s, 'country', NHR.ref('countries').rows.filter(x => x.code !== '051'), { onChange: () => { s.normAuto = true; redraw(); } }), { req: true }),
-      field('Քաղաք', sin('city', { ph: 'օր.՝ Բաթումի' }))
+      field('Երկիր', countryPick(s, redraw), { req: true }),
+      field('Քաղաք', cityPick(s, info.from || f.start || today(), fk('city')), { hint: NHR.tripCityHint(s.country) })
     ];
     const money = f.payer === 'host' || f.near ? null : [
       def.domestic ? null : field('Արժույթ', curSel(s, info.fn, fk('currency'))),
@@ -4692,7 +4784,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
     if (f.pdAuto !== false) f.perDiemDays = days ? Math.max(0, days - xDays) : '';
     if (f.ntAuto !== false) f.nights = days ? Math.max(0, days - 1 - xNights) : '';
     const nrm = NHR.tripNorms(f.start || d.date), yer = def.domestic && f.region === YEREVAN;
-    const fn = !def.domestic && f.country ? NHR.tripForeignNorm(f.country, f.city, f.start || d.date) : null;
+    const fn = !def.domestic && f.country ? NHR.tripForeignNorm(f.country, f.city, f.start || d.date, f.cityNote) : null;
     if (f.normAuto !== false) {
       if (def.domestic) { f.perDiem = nrm.perDiem; f.lodging = yer ? nrm.lodgingYerevan : nrm.lodging; f.currency = 'AMD'; }
       else if (fn) applyForeign(f, fn);
@@ -4708,7 +4800,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
         if (s.normAuto !== false) { s.perDiem = nrm.perDiem; s.lodging = ln; s.currency = 'AMD'; }
         text = `Նորմ (N 2335-Ն, հավելված 2)՝ օրապահիկ ${NHR.fmtMoney(nrm.perDiem)} դրամ, գիշերավարձ ${NHR.fmtMoney(ln)} դրամ։`;
       } else {
-        fnS = s.country ? NHR.tripForeignNorm(s.country, s.city, from || f.start || d.date) : null;
+        fnS = s.country ? NHR.tripForeignNorm(s.country, s.city, from || f.start || d.date, s.cityNote) : null;
         if (s.normAuto !== false) { if (fnS) applyForeign(s, fnS); else { s.perDiem = ''; s.lodging = ''; } }
         if (!s.currency) s.currency = 'USD';
         text = fnS ? normText(fnS, s.currency) : s.country ? 'Այս վայրի նորմը ցանկում չկա․ լրացրեք ձեռքով։' : '';
@@ -4740,8 +4832,8 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
           f.region === YEREVAN ? null : field('Բնակավայր', tin(f, 'city', { ph: 'եթե տարբեր է համայնքի անունից' })),
           multi ? null : h('div', { class: 'field w2' }, h('label', null, ' '), chk(f, 'near', 'Մինչև 30 կմ (հատուցվում է միայն ճանապարհածախսը)', { onChange: redraw }))
         ] : [
-          field('Երկիր', combo(f, 'country', NHR.ref('countries').rows.filter(x => x.code !== '051'), { onChange: redraw }), { req: true }),
-          field('Քաղաք', tin(f, 'city', { ph: 'օր.՝ Թբիլիսի' }))
+          field('Երկիր', countryPick(f, redraw), { req: true }),
+          field('Քաղաք', cityPick(f, f.start || d.date, 'trip-city'), { hint: NHR.tripCityHint(f.country) })
         ],
         h('div', { class: 'field wall' }, h('div', { class: 'row' }, btn('Ավելացնել վայր', () => { f.stops.push(blankStop(def)); f.near = false; f.pdAuto = true; f.ntAuto = true; redraw(); }, 'sm', 'plus'),
           h('span', { class: 'muted small' }, multi ? `Գործուղման վայրերը՝ ${1 + extra.length}․ յուրաքանչյուրը՝ իր օրերով և նորմերով։` : 'Եթե գործուղումը մի քանի վայրում է (օր.՝ Գյումրի, հետո Վանաձոր)'))),
@@ -4778,6 +4870,10 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
     else if (f.end < f.start) errs.push('Վերադառնալու օրը մեկնելու օրից շուտ է');
     if (def.domestic && (!f.region || (f.region !== YEREVAN && !f.commune && !(f.city || '').trim()))) errs.push(multi ? 'Վայր 1՝ ընտրեք մարզը և համայնքը' : 'Ընտրեք գործուղման վայրը (մարզ, համայնք)');
     if (!def.domestic && !f.country) errs.push(multi ? 'Վայր 1՝ ընտրեք երկիրը' : 'Ընտրեք երկիրը');
+    /* Քաղաքը նշված չէ, իսկ ցանկում երկրի քաղաքներն ունեն իրենց նորմերը */
+    if (!def.domestic) NHR.tripStops(f).forEach((s, i) => {
+      if (s.country && !NHR.cityBare(s.city || '').trim() && NHR.tripCities(s.country).length) warns.push(`${multi ? `Վայր ${i + 1}՝ ` : ''}ընտրեք քաղաքը․ ցանկում ${NHR.countryGen(NHR.refName('countries', s.country))} քաղաքներն ունեն իրենց նորմերը (առանց քաղաքի կիրառվում է երկրի մնացած տարածքի նորմը)`);
+    });
     extra.forEach((s, i) => {
       const lbl = `Վայր ${i + 2}`;
       if (def.domestic ? (!s.region || (s.region !== YEREVAN && !s.commune && !(s.city || '').trim())) : !s.country) errs.push(`${lbl}՝ ընտրեք ${def.domestic ? 'մարզը և համայնքը' : 'երկիրը'}`);
@@ -4841,7 +4937,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       if (!f.prefilled) { Object.assign(f, { currency: last.currency || bf.currency || 'AMD', perDiem: last.perDiem || '', lodging: last.lodging || '', near: !!bf.near, payer: bf.payer || 'employer', prefilled: true, pdAuto: true, ntAuto: true, normAuto: false }); }
     }
     const end0 = base ? NHR.docEnd(base, d.id) : '', ne = f.newEnd || '';
-    const fnL = base && !def.domestic && last.country ? NHR.tripForeignNorm(last.country, last.city, end0 || bf.start) : null;
+    const fnL = base && !def.domestic && last.country ? NHR.tripForeignNorm(last.country, last.city, end0 || bf.start, last.cityNote) : null;
     if (fnL && f.normAuto) applyForeign(f, fnL);
     const added = end0 && ne ? NHR.diffDays(end0, ne) : 0;
     if (f.pdAuto !== false) f.perDiemDays = added > 0 ? added : '';
@@ -10119,11 +10215,11 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       const amt = (r, k) => `${NHR.fmtMoney(r[k])} ${r.currency}${r.alt ? ` / ${NHR.fmtMoney(r.alt[k])} ${r.alt.currency}` : ''}`;
       const cityCell = (r) => r.city ? (r.cityEn && r.cityEn !== r.city ? h('span', null, r.city, h('span', { class: 'muted small' }, ` · ${r.cityEn}`)) : r.city) : h('span', { class: 'muted' }, 'մնացած տարածք');
       const rowsOf = lk.country ? NHR.tripForeignRows(lk.country) : { manual: [], list: [] };
-      const fn = lk.country ? NHR.tripForeignNorm(lk.country, lk.city, lk.date || NHR.todayISO()) : null;
+      const fn = lk.country ? NHR.tripForeignNorm(lk.country, lk.city, lk.date || NHR.todayISO(), lk.cityNote) : null;
       const nCountries = new Set(L.rows.filter(r => r.country !== '*').map(r => r.country)).size;
       const lookForm = h('div', { class: 'form' },
-        field('Երկիր', combo(lk, 'country', NHR.ref('countries').rows.filter(c => c.code !== '051'), { onChange: () => NHR.rerender() }), { cls: 'w2' }),
-        field('Քաղաք', inp(lk, 'city', { ph: 'օր.՝ Բաթումի', onChange: () => NHR.rerender() })),
+        field('Երկիր', combo(lk, 'country', NHR.ref('countries').rows.filter(c => c.code !== '051'), { onChange: () => { lk.city = ''; lk.cityNote = ''; NHR.rerender(); } }), { cls: 'w2' }),
+        field('Քաղաք', NHR.tripCityPick(lk, lk.date || NHR.todayISO(), 'set-trip-city'), { hint: NHR.tripCityHint(lk.country) }),
         field('Ամսաթիվ', inp(lk, 'date', { type: 'date', onChange: () => NHR.rerender() }), { hint: 'Սեզոնային նորմերի համար․ դատարկ՝ այսօր' }));
       const result = !lk.country ? null : fn
         ? h('div', { class: 'note info' }, NHR.icon('check'), h('div', null, h('b', null, 'Կկիրառվի՝ '), `օրապահիկ ${NHR.fmtMoney(fn.perDiem)}, գիշերավարձ ${NHR.fmtMoney(fn.lodging)} ${NHR.curName(fn.currency)}`,
