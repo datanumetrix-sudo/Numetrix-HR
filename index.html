@@ -922,7 +922,7 @@ input.bad { border-color: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, v
 <noscript><p style="padding:24px">Numetrix HR-ը աշխատում է միայն JavaScript-ով։</p></noscript>
 <script>window.NHR_SITE = true;</script>
 <script src="config.js"></script>
-<script>window.NHR_BUILD = 'e3a025c316';</script>
+<script>window.NHR_BUILD = '6b4c5c22ed';</script>
 <script>
 /* Numetrix HR — ընդհանուր տեղեկատուներ, որոնք եկել են ՀԾ-ից կամ ստանդարտից։
    Համայնքներ՝ 930 տող ՀԾ-ի նկարներից (առանց ԼՂՀ-ի), երկրներ՝ ISO 3166 թվային կոդեր։ */
@@ -3050,9 +3050,9 @@ window.NHR_DEMO = function () {
   const SKEY = 'numetrix-hr-session';
   /* Հավաքածուներ. ARR՝ id-ով գրառումների ցուցակ, MAP՝ բանալիով օբյեկտ, LOCAL՝ միայն այս բրաուզերում։ Մնացածը՝ «_» (ամբողջությամբ) */
   const ARR = ['orgs', 'posDescriptions', 'people', 'employments', 'documents', 'staffing', 'trainings', 'users', 'importLog'];
-  const MAP = ['orgRefs', 'statManual', 'timesheet', 'templates', 'importMaps', 'refAdds', 'driveFolders', 'driveFiles'];
-  /* Google Drive-ի կապերը փոխում է միայն սերվերը (էջը դրանք միայն կարդում է) */
-  const SERVER_ONLY = ['driveFolders', 'driveFiles'];
+  const MAP = ['orgRefs', 'statManual', 'timesheet', 'templates', 'importMaps', 'refAdds', 'driveFolders', 'driveFiles', 'payTasks'];
+  /* Google Drive-ի կապերը և Tasks-ի վճարման թասքերը փոխում է միայն սերվերը (էջը դրանք միայն կարդում է) */
+  const SERVER_ONLY = ['driveFolders', 'driveFiles', 'payTasks'];
   const LOCAL = ['version', 'currentUserId', 'currentOrgId', 'build', 'syncConfig'];
   const BATCH = 300, POLL_MS = 60000;
   const K = (c, id) => c + '\u0001' + id;
@@ -3156,7 +3156,7 @@ window.NHR_DEMO = function () {
     if (!info) return;
     const st = S();
     st.syncConfig = { tasksUrl: info.tasksUrl || '', secretSet: !!info.secret, trigger: !!info.trigger, lastPull: info.lastOk || '', lastError: info.lastError || '',
-      lastErrorAt: info.lastErrorAt || '', since: info.since || '', v: info.v || '', lastCheck: (st.syncConfig || {}).lastCheck || '', checkOk: (st.syncConfig || {}).checkOk, checkError: (st.syncConfig || {}).checkError || '' };
+      lastErrorAt: info.lastErrorAt || '', since: info.since || '', v: info.v || '', lastCheck: (st.syncConfig || {}).lastCheck || '', checkOk: (st.syncConfig || {}).checkOk, checkError: (st.syncConfig || {}).checkError || '', payTasks: (st.syncConfig || {}).payTasks };
   };
 
   /* ---------- պահպանում ---------- */
@@ -3269,7 +3269,7 @@ window.NHR_DEMO = function () {
     await poll(true);
     return r;
   };
-  NHR.serverPing = () => NHR.api('syncPing', {}).then(r => { const st = S(); st.syncConfig = Object.assign({}, st.syncConfig, { lastCheck: r.checkedAt, checkOk: true, checkError: '' }); return r; },
+  NHR.serverPing = () => NHR.api('syncPing', {}).then(r => { const st = S(); st.syncConfig = Object.assign({}, st.syncConfig, { lastCheck: r.checkedAt, checkOk: true, checkError: '', payTasks: !!r.payTasks }); return r; },
     e => { const st = S(); st.syncConfig = Object.assign({}, st.syncConfig, { lastCheck: new Date().toISOString(), checkOk: false, checkError: e && e.message ? e.message : String(e) }); throw e; });
   NHR.serverSetTasksUrl = (url) => NHR.api('syncSetUrl', { url }).then(info => { syncCfg(info); return info; });
   NHR.serverSyncInfo = () => NHR.api('syncInfo', {}).then(info => { syncCfg(info); return info; });
@@ -4857,6 +4857,8 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
             multi && calc.lines.length ? ['Ըստ վայրերի', h('div', { style: { display: 'grid', gap: '2px' } }, calc.lines.filter(l => l.qty).map(l => h('div', { class: 'small' }, `${l.name}՝ ${NHR.docQty(l.qty)} ${l.unit} × ${NHR.moneyCur(l.rate, l.cur)}`)))] : null,
             advDue ? ['Վճարել', `ոչ ուշ, քան ${NHR.fmtDate(advDue)} (մեկնելուց 1 օր առաջ, N 2335-Ն, կետ 9)`] : null,
             calc.lines.some(l => l.cur !== 'AMD') ? ['Արտարժույթ', 'Վճարվում է ՀՀ դրամով՝ ՀՀ կենտրոնական բանկի միջին փոխարժեքով (կետ 19)'] : null]),
+          /* օրվա փոխարժեքը՝ վճարման թասքի համար (pay.js) */
+          NHR.fxBlock ? NHR.fxBlock(f, calc.totals) : null,
           h('div', { class: 'row' }, btn('Լրացնել նորմերով', () => {
             if (!def.domestic && !fn) { NHR.toast('Այս երկրի նորմը ցանկում չկա․ լրացրեք ձեռքով (Կարգավորումներ → Գործուղում)'); return; }
             f.normAuto = true; f.pdAuto = true; f.ntAuto = true; extra.forEach(s => { s.normAuto = true; }); redraw();
@@ -4955,7 +4957,8 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       base && added > 0 ? panel('Լրացուցիչ օրերի կանխավճար', h('div', { style: { display: 'grid', gap: '12px' } },
         f.payer === 'host' ? h('div', { class: 'muted' }, 'Ծախսերը հատուցում է ընդունող կազմակերպությունը․ կանխավճար չի տրվում։')
           : [h('div', { class: 'form' }, costFields(d, f, def, { addedLabel: true, fn: fnL })), kv([['Կանխավճար', calc.lines.length ? NHR.totalsText(calc.totals) : '—'],
-            NHR.tripStops(bf).length > 1 ? ['Վայրը', `${NHR.tripPlaceShort(last, def)} (վերջին վայրը)`] : null, fnL ? ['Նորմ', normText(fnL, f.currency)] : null])])) : null,
+            NHR.tripStops(bf).length > 1 ? ['Վայրը', `${NHR.tripPlaceShort(last, def)} (վերջին վայրը)`] : null, fnL ? ['Նորմ', normText(fnL, f.currency)] : null]),
+            NHR.fxBlock ? NHR.fxBlock(f, calc.totals) : null])) : null,
       base && added < 0 ? h('div', { class: 'note info' }, NHR.icon('warn'), h('div', null, 'Վաղ ավարտի դեպքում չօգտագործված օրերի կանխավճարը վերադարձվում է ծախսերի հաշվետվությամբ։')) : null
     ];
     if (!base) errs.push('Ընտրեք գործուղման հրամանը');
@@ -9112,7 +9115,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
           canEdit && def.kind === 'dismiss' && NHR.dismissSendLabel(d) ? btn(NHR.dismissSendLabel(d), () => NHR.sendModal([d]), '', 'send') : null,
           d.status === 'approved' && canEdit ? btn('Չեղարկել', () => { const why = NHR.cancelBlock(d); if (why) { NHR.toast(why); return; }
             NHR.confirm('Չեղարկել փաստաթուղթը', def.kind === 'act' ? 'Ակտը կնշվի չեղարկված, իսկ նրա ծառայությունների քանակը ռեեստրում այլևս չի հաշվվի կատարված։ Համարը չի վերաօգտագործվի։'
-              : 'Փաստաթուղթը կնշվի չեղարկված, իսկ համարը այլևս չի օգտագործվի։ Քարտի փոփոխությունները կհետարկվեն։', 'Չեղարկել', () => { d.status = 'cancelled'; revert(d); NHR.save(); NHR.driveAuto(d, 'cancel'); NHR.rerender(); }, 'danger'); }, 'ghost danger') : null,
+              : 'Փաստաթուղթը կնշվի չեղարկված, իսկ համարը այլևս չի օգտագործվի։ Քարտի փոփոխությունները կհետարկվեն։', 'Չեղարկել', () => { d.status = 'cancelled'; revert(d); NHR.save(); NHR.driveAuto(d, 'cancel'); if (NHR.payAuto) NHR.payAuto(d, 'cancel'); NHR.rerender(); }, 'danger'); }, 'ghost danger') : null,
           ...NHR.docFileButtons(d)]),
       h('div', { class: 'split side-r' },
         h('div', { style: { display: 'grid', gap: '12px' } },
@@ -9146,6 +9149,8 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
             d.status === 'approved' ? [d.generated ? 'Գեներացրել է' : 'Հաստատել է', approver ? `${approver.name}, ${NHR.fmtDT(d.approvedAt)}` : ''] : null,
             d.updatedAt ? ['Վերջին խմբագրում', `${(NHR.state().users.find(u => u.id === d.updatedBy) || {}).name || ''}, ${NHR.fmtDT(d.updatedAt)}`] : null
           ])),
+          /* վճարում ենթադրող փաստաթուղթ՝ թասք Tasks-ում (pay.js) */
+          NHR.payPanel ? NHR.payPanel(d) : null,
           def.kind === 'change' || def.kind === 'civilChange' ? NHR.agrAfterPanel(d) : null,
           civC && civC.status === 'approved' ? NHR.civilMini(civC) : null,
           def.kind === 'trip' ? NHR.tripAfter(d) : null))
@@ -10264,7 +10269,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
               ['Վերջին հաջող համաժամեցում', C.lastPull ? NHR.fmtDT(C.lastPull) : '—'],
               ['«Սպասող»', String(nPend)], ['Խնդիր ունեցող', String(nErr)],
               ['Վերջին սխալ', C.lastError ? `${C.lastError} (${NHR.fmtDT(C.lastErrorAt)})` : '—'],
-              ['Վերջին ստուգում', C.lastCheck ? `${NHR.fmtDT(C.lastCheck)} · ${C.checkOk ? 'կապ կա' : 'կապ չկա' + (C.checkError ? '՝ ' + C.checkError : '')}` : '—']]),
+              ['Վերջին ստուգում', C.lastCheck ? `${NHR.fmtDT(C.lastCheck)} · ${C.checkOk ? 'կապ կա' + (C.payTasks ? ', վճարման թասքերը՝ միացված' : C.payTasks === false ? ', վճարման թասքեր Tasks-ը դեռ չի ընդունում' : '') : 'կապ չկա' + (C.checkError ? '՝ ' + C.checkError : '')}` : '—']]),
             h('div', { class: 'row' },
               srv && can ? btn('Պահպանել հասցեն', saveUrl, '', 'check') : null,
               off(btn('🔌 Ստուգել կապը', ping, '')),
@@ -10727,6 +10732,239 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
     if (!can) return [off('print', 'Տպել'), off('download', 'Ներբեռնել')];
     return [h('button', { class: 'icon-btn', type: 'button', title: 'Բացել PDF-ը (տպելու համար)', 'aria-label': 'Տպել', onclick: (ev) => openPdf(d, ev.currentTarget) }, NHR.icon('print')),
       h('button', { class: 'icon-btn', type: 'button', title: 'Ներբեռնել PDF-ը', 'aria-label': 'Ներբեռնել', onclick: (ev) => openPdf(d, ev.currentTarget, true) }, NHR.icon('download'))];
+  };
+})();
+
+</script>
+<script>
+/* Numetrix HR — վճարման թասքեր Numetrix Tasks-ում (սերվերով տարբերակում)։
+   Վճարում ենթադրող հաստատված փաստաթուղթը դառնում է թասք Tasks-ում՝ կազմակերպության պատասխանատու հաշվապահի համար.
+   advance՝ գործուղման կանխավճար (5.1, 5.2 և երկարաձգում), vacation՝ արձակուրդի վճարում (եթե հրամանում կա «Հաշվապահությանը՝ … վճարել»),
+   final՝ ազատման վերջնահաշվարկ (7.x), act՝ ծառայությունների վճարում ըստ ակտի (2.3)։
+   Թասքի բովանդակությունը կազմվում է այստեղ, իսկ Tasks-ին ուղարկում է սերվերը (Code.gs՝ ստորագրությամբ). էջում գաղտնի բանալի չկա։
+   Արտարժույթով գումարների համար՝ օրվա փոխարժեքը (fields.fx), որ թասքում երևա ընդամենը դրամով։ */
+(function () {
+  const NHR = window.NHR;
+  const { h, btn, panel, kv, field } = NHR;
+  const S = () => NHR.state();
+  const NOSRV = 'Աշխատում է Google-ում տեղադրված (սերվերով) տարբերակում';
+  NHR.PAY_KIND_NAMES = { advance: 'Գործուղման կանխավճար', vacation: 'Արձակուրդի վճարում', final: 'Ազատման վերջնահաշվարկ', act: 'Վճարում ըստ ակտի' };
+  NHR.payTask = (docId) => ((S().payTasks || {})[docId]) || null;
+
+  /* ---------- Թասքի բովանդակությունը ---------- */
+  /* Հրամանում հաշվապահությանը տրված հանձնարարականը՝ «Հաշվապահությանը՝ …» (ինչ և երբ վճարել) */
+  const instr = (d) => {
+    const vals = NHR.tagValues(d), out = [];
+    (NHR.tplParts(d.code, vals) || []).forEach(p => String(p.text || '').split('\n').forEach(l => {
+      const t = NHR.tplText(l, vals).replace(/\s+/g, ' ').trim();
+      if (/Հաշվապահությանը/.test(t)) out.push(t.replace(/^.*?(Հաշվապահությանը)/, '$1'));
+    }));
+    return [...new Set(out)];
+  };
+  const kindOf = (def) => ({ trip: 'advance', leave: 'vacation', dismiss: 'final', act: 'act' })[def.kind] || '';
+  /* Ընդամենը դրամով՝ միայն եթե ամեն արտարժույթի փոխարժեքը լրացված է */
+  NHR.payAmd = (totals, fx) => {
+    let sum = 0, ok = true;
+    Object.keys(totals || {}).forEach(c => { const v = Number(totals[c]) || 0; if (c === 'AMD') sum += v; else if (fx && Number(fx[c]) > 0) sum += v * Number(fx[c]); else ok = false; });
+    return ok && sum > 0 ? Math.round(sum) : null;
+  };
+  /* Ակտով վճարման ժամկետը՝ պայմանագրի տեքստից («Ակտը ստորագրելու օրվանից 15 (…) աշխատանքային օրվա ընթացքում») */
+  const actDays = (c) => {
+    try {
+      const vals = NHR.tagValues(c), t = (NHR.tplParts(c.code, vals) || []).map(p => p.text).join('\n');
+      const m = /Ակտը ստորագրելու օրվանից\s+(\d+)/.exec(NHR.tplText(t.replace(/\n/g, ' '), vals));
+      return m ? Number(m[1]) : 15;
+    } catch (e) { return 15; }
+  };
+  /** Թասքը (կամ null՝ եթե փաստաթուղթը վճարում չի ենթադրում)՝ { kind, title, due, doc, person, lines, totals, fx?, text } */
+  NHR.payTaskOf = (d) => {
+    const def = d && NHR.docDef(d.code), kind = def ? kindOf(def) : '';
+    if (!kind) return null;
+    const f = d.fields || {}, e = d.empId ? NHR.emp(d.empId) : null, p = e ? NHR.empPerson(e) : null;
+    const name = p ? NHR.shortName(p) : NHR.docEmpName(d);
+    let lines = [], totals = {}, due = '', title = '', text = [];
+    if (kind === 'advance') {
+      let calc;
+      if (NHR.isTripChange(d)) {
+        const base = S().documents.find(x => x.id === f.baseId), bf = base ? base.fields : {};
+        const end0 = base ? NHR.tripEndBefore(base, d) : '', added = end0 && f.newEnd ? NHR.diffDays(end0, f.newEnd) : 0;
+        if (!(added > 0)) return null;
+        calc = NHR.tripCalc(Object.assign({}, f, { currency: f.currency || bf.currency, near: bf.near, stops: [] }));
+        due = d.date; title = `Գործուղման լրացուցիչ կանխավճար՝ ${name}`;
+        if (base) text.push(`Գործուղում՝ ${NHR.tripPlace(bf, def)}, երկարաձգում մինչև ${NHR.fmtDate(f.newEnd)} (+${added} օր)։`);
+      } else {
+        calc = NHR.tripCalc(f);
+        due = f.start ? NHR.addDays(f.start, -1) : d.date; title = `Գործուղման կանխավճար՝ ${name}`;
+        if (f.start) text.push(`Գործուղում՝ ${NHR.tripPlace(f, def)}, ${NHR.fmtDate(f.start)}–${NHR.fmtDate(NHR.docEnd(d))}։`);
+      }
+      if (!calc.lines.length) return null;
+      lines = calc.lines.map(l => ({ name: l.name, qty: l.qty, unit: l.unit, rate: l.rate, amount: l.amount, currency: l.cur }));
+      totals = calc.totals;
+    } else if (kind === 'vacation' || kind === 'final') {
+      const ins = instr(d);
+      if (!ins.length) return null;
+      if (kind === 'vacation') {
+        /* ամենամյա արձակուրդներ՝ 3 օր առաջ (ՀՀ ԱՕ 169), մնացածը՝ սկզբի օրը */
+        due = f.start ? (NHR.POOL_CODES.includes(d.code) ? NHR.addDays(f.start, -3) : f.start) : d.date;
+        title = `${def.name}՝ ${name}`;
+        if (f.start && f.end) text.push(`Արձակուրդ՝ ${NHR.fmtDate(f.start)}–${NHR.fmtDate(f.end)}${f.days ? ` (${f.days} օր)` : ''}։`);
+      } else {
+        due = f.dateOff || d.date; title = `Վերջնահաշվարկ՝ ${name}`;
+        if (f.dateOff) text.push(`Աշխատանքի վերջին օրը՝ ${NHR.fmtDate(f.dateOff)}։`);
+      }
+      text = ins.concat(text);
+    } else if (kind === 'act') {
+      const calc = NHR.actCalc(d);
+      if (!(calc.total > 0)) return null;
+      lines = calc.lines.map(l => ({ name: l.name, qty: l.qty, unit: l.unit, rate: l.price, amount: l.amount, currency: 'AMD' }));
+      totals = { AMD: calc.total };
+      const n = calc.c ? actDays(calc.c) : 15, rest = (NHR.org(d.orgId) || { hr: {} }).hr.restDays || ['6', '7'];
+      due = NHR.workDayEnd(NHR.nextWorkDay(d.date, rest), n, rest) || d.date;
+      title = `Վճարում ըստ ակտի՝ ${name}`;
+      text.push(`Վճարել կատարողին (${name}) ակտով ընդունված ծառայությունների դիմաց՝ ${NHR.docMoney(calc.total)} դրամ, ակտը ստորագրելու օրվանից ${n} աշխատանքային օրվա ընթացքում (ըստ պայմանագրի)։`);
+      if (calc.c) text.push(`Պայմանագիր՝ ${NHR.docNumberText(calc.c)}, ${NHR.fmtDate(calc.c.date)}։`);
+    }
+    const out = { kind, title, due, doc: { code: d.code, number: NHR.docNumberText(d), date: d.date }, person: { name, tabel: e ? e.tabel : '' }, lines, totals, text: text.join('\n') };
+    const curs = Object.keys(totals).filter(c => c !== 'AMD');
+    if (curs.length && f.fx && typeof f.fx === 'object') {
+      const fx = {}; curs.forEach(c => { if (Number(f.fx[c]) > 0) fx[c] = Number(f.fx[c]); });
+      if (Object.keys(fx).length) { fx.date = f.fx.date || ''; out.fx = fx; }
+    }
+    return out;
+  };
+
+  /* ---------- Փոխարժեք ---------- */
+  /* Վճարման օրվա ՀՀ ԿԲ միջին փոխարժեքը (N 2335-Ն, կետ 19)՝ ամեն արտարժույթի համար. թասքում՝ ընդամենը դրամով */
+  NHR.fxBlock = (f, totals, opt) => {
+    const curs = Object.keys(totals || {}).filter(c => c !== 'AMD' && totals[c]);
+    if (!curs.length) return null;
+    opt = opt || {};
+    if (!f.fx || typeof f.fx !== 'object') f.fx = { date: '' };
+    const fx = f.fx, changed = opt.onChange || (() => NHR.rerenderKeep()), amd = NHR.payAmd(totals, fx);
+    const numEl = (c) => {
+      const el = h('input', { type: 'number', class: 'code', min: 0, step: 'any', value: Number(fx[c]) > 0 ? String(fx[c]) : '', readonly: opt.ro || null, 'data-fk': `fx-${c}`, 'aria-label': `1 ${c} փոխարժեքը, դրամ` });
+      el.addEventListener('input', () => { fx[c] = el.value === '' ? '' : Number(el.value); });
+      /* ամսաթիվը նշված չէ՝ այսօրը (փոխարժեքը սովորաբար գրվում է վճարման օրը) */
+      el.addEventListener('change', () => { if (el.value && !fx.date) fx.date = NHR.todayISO(); changed(); });
+      return el;
+    };
+    return h('div', { style: { display: 'grid', gap: '8px' } },
+      h('div', { class: 'form' },
+        field('Փոխարժեքի ամսաթիվ', NHR.inp(fx, 'date', { type: 'date', ro: opt.ro, onChange: changed }), { hint: 'Վճարման օրը' }),
+        curs.map(c => field(`1 ${c}, դրամ`, numEl(c), { hint: 'ՀՀ ԿԲ միջին փոխարժեք' }))),
+      h('div', { class: 'small' }, amd ? [h('span', { class: 'muted' }, 'Ընդամենը դրամով՝ '), h('b', null, `${NHR.docMoney(amd)} դրամ`)]
+        : h('span', { class: 'muted' }, 'Լրացրեք օրվա փոխարժեքը․ վճարման թասքում գումարը կերևա նաև դրամով։')));
+  };
+
+  /* ---------- Ուղարկում (հերթով) ---------- */
+  async function settle() {
+    for (let i = 0; i < 6 && NHR.hasUnsaved(); i++) await NHR.flushSave();
+    if (NHR.hasUnsaved()) throw new Error('Փոփոխությունները դեռ չեն պահպանվել սերվերում․ փորձեք մի փոքր ուշ');
+  }
+  const queue = [];
+  let busy = false, current = null;
+  const jobOf = (id) => (current && current.id === id ? current : null) || queue.find(j => j.id === id) || null;
+  NHR.paySending = (id) => !!jobOf(id);
+  function enqueue(id, opt) {
+    const had = queue.find(j => j.id === id);
+    if (had) { had.opt.force = had.opt.force || !!(opt && opt.force); had.opt.quiet = had.opt.quiet && !!(opt && opt.quiet); return had.promise; }
+    const job = { id, opt: Object.assign({}, opt) };
+    job.promise = new Promise((res, rej) => { job.res = res; job.rej = rej; });
+    job.promise.catch(() => {});
+    queue.push(job);
+    run();
+    return job.promise;
+  }
+  const note = (r) => {
+    if (!r || r.same) return;
+    if (r.error) { NHR.toast('Tasks՝ ' + r.error); return; }
+    const t = r.task || {};
+    if (t.status === 'cancelled') NHR.toast('Վճարման թասքը Tasks-ում չեղարկվեց');
+    else if (t.status === 'done') NHR.toast(`Թասքը (${t.taskId}) Tasks-ում արդեն վճարված է`);
+    else if (t.taskId) NHR.toast(`Վճարման թասքը ուղարկվեց Tasks՝ ${t.taskId}${t.assignee ? `, կատարող՝ ${t.assignee}` : ''}`);
+  };
+  async function run() {
+    if (busy) return;
+    busy = true;
+    try {
+      while (queue.length) {
+        const job = current = queue.shift(), d = S().documents.find(x => x.id === job.id);
+        NHR.rerenderKeep();
+        try {
+          if (!d) throw new Error('Փաստաթուղթը չի գտնվել');
+          const task = d.status === 'cancelled' ? null : NHR.payTaskOf(d);
+          let r = null;
+          if (task || NHR.payTask(d.id)) {
+            await settle();
+            r = await NHR.api('payTaskSend', { docId: d.id, task, force: !!job.opt.force });
+            NHR.serverApply(r.recs);
+          }
+          job.res(r);
+          if (!job.opt.quiet) note(r);
+        } catch (e) { job.rej(e); if (!job.opt.quiet) NHR.toast('Tasks-ին ուղարկել չհաջողվեց․ ' + e.message); }
+        current = null;
+      }
+    } finally { busy = false; current = null; NHR.rerenderKeep(); }
+  }
+  /** Հաստատելուց, փոխարժեքը փոխելուց և չեղարկելուց հետո (what = 'cancel')՝ ինքնաբերաբար */
+  NHR.payAuto = (d, what) => {
+    if (!NHR.serverMode || !d || !d.id || !NHR.can('edit')) return;
+    if (what === 'cancel') { if (NHR.payTask(d.id)) enqueue(d.id, {}); return; }
+    if (d.status === 'approved' && NHR.payTaskOf(d)) enqueue(d.id, {});
+  };
+  NHR.paySend = (d) => enqueue(d.id, { force: true });
+  NHR.payRefresh = async (d) => {
+    const r = await NHR.api('payTaskStatus', { docIds: [d.id] });
+    NHR.serverApply(r.recs);
+    return r;
+  };
+  const after = (name, fn) => {
+    const f = NHR[name];
+    if (typeof f !== 'function') return;
+    NHR[name] = function () { const r = f.apply(this, arguments); try { fn(r); } catch (e) { /* թասքը չի խանգարում հիմնական գործողությանը */ } return r; };
+  };
+  after('approve', (d) => NHR.payAuto(d));
+
+  /* ---------- Փաստաթղթի էջ՝ «Վճարում (Tasks)» ---------- */
+  const statusOf = (d, rec) => {
+    if (!NHR.serverMode) return h('span', { class: 'muted' }, NOSRV);
+    if (NHR.paySending(d.id)) return h('span', { class: 'muted' }, 'Ուղարկվում է…');
+    if (!rec) return h('span', { class: 'muted' }, d.status === 'approved' ? 'Դեռ չի ուղարկվել' : '—');
+    const out = [];
+    if (rec.taskId) {
+      const st = rec.status === 'done' ? `Վճարված է${rec.doneAt ? ' · ' + NHR.fmtDT(rec.doneAt) : ''}${rec.doneBy ? ' · ' + rec.doneBy : ''}`
+        : rec.status === 'cancelled' ? 'Չեղարկված' : rec.status === 'missing' ? 'Tasks-ում չի գտնվել' : 'Բաց է՝ սպասում է վճարման';
+      out.push(h('div', null, h('b', { class: 'code' }, rec.taskId), ` · ${st}`));
+      if (rec.assignee) out.push(h('div', { class: 'muted small' }, `Կատարող՝ ${rec.assignee}`));
+    }
+    if (rec.error) out.push(h('div', { class: 'small', style: { color: rec.pending ? 'var(--warn)' : 'var(--bad)' } }, rec.error));
+    if (d.status === 'cancelled' && rec.status === 'done') out.push(h('div', { class: 'small', style: { color: 'var(--warn)' } }, 'Փաստաթուղթը չեղարկված է, բայց Tasks-ում վճարումն արդեն նշված է կատարված'));
+    return h('div', { style: { display: 'grid', gap: '4px' } }, out);
+  };
+  NHR.payPanel = (d) => {
+    if (!d || d.status === 'draft') return null;
+    const task = d.status === 'approved' ? NHR.payTaskOf(d) : null, rec = NHR.payTask(d.id);
+    if (!task && !rec) return null;
+    const t = task || rec.data || {}, f = d.fields || {}, totals = t.totals || {};
+    const canEdit = NHR.can('edit') && d.status === 'approved', curs = Object.keys(totals).filter(c => c !== 'AMD');
+    const amd = NHR.payAmd(totals, f.fx);
+    /* Փոխարժեքը փոխելիս՝ պահպանվում է և թասքը թարմանում է Tasks-ում */
+    const fxChanged = () => { NHR.save(); NHR.payAuto(d); NHR.rerenderKeep(); };
+    const sending = NHR.paySending(d.id), srv = NHR.serverMode && NHR.can('edit');
+    const actions = [
+      srv && d.status === 'approved' && (!rec || rec.error || rec.status === 'missing') ? h('button', { class: 'btn sm', type: 'button', disabled: sending ? true : null,
+        onclick: () => NHR.paySend(d).catch(() => {}) }, NHR.icon('send'), rec ? 'Ուղարկել նորից' : 'Ուղարկել Tasks') : null,
+      NHR.serverMode && rec && rec.taskId ? h('button', { class: 'icon-btn', type: 'button', title: 'Թարմացնել վիճակը Tasks-ից', 'aria-label': 'Թարմացնել վիճակը',
+        onclick: (ev) => { const b = ev.currentTarget; b.disabled = true; NHR.payRefresh(d).then(() => NHR.toast('Վիճակը թարմացվեց'), er => NHR.toast('Չհաջողվեց․ ' + er.message)).then(() => { b.disabled = false; NHR.rerenderKeep(); }); } }, NHR.icon('sync')) : null
+    ].filter(Boolean);
+    return panel('Վճարում (Tasks)', h('div', { style: { display: 'grid', gap: '12px' } },
+      kv([['Տեսակը', NHR.PAY_KIND_NAMES[t.kind] || t.kind || ''],
+        ['Վճարել մինչև', t.due ? NHR.fmtDate(t.due) : ''],
+        ['Գումարը', Object.keys(totals).length ? NHR.totalsText(totals) : h('span', { class: 'muted' }, 'հաշվարկվում է ՀԾ-ում')],
+        curs.length ? ['Դրամով', amd ? `${NHR.docMoney(amd)} դրամ` : h('span', { class: 'muted' }, 'լրացրեք փոխարժեքը')] : null,
+        ['Tasks', statusOf(d, rec)]]),
+      curs.length && d.status === 'approved' ? NHR.fxBlock(f, totals, { ro: !canEdit, onChange: fxChanged }) : null,
+      actions.length ? h('div', { class: 'row' }, actions) : null));
   };
 })();
 
