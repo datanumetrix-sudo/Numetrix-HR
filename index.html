@@ -409,6 +409,44 @@ table.t { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .sheet.doc .tv { background: color-mix(in srgb, var(--accent-soft) 75%, transparent); border-radius: 3px; padding: 0 2px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 .sheet.doc.plain .tv { background: none; padding: 0; }
 .sheet.doc .tm { background: var(--bad-soft, #FDECEC); color: var(--bad); border: 1px dashed currentColor; border-radius: 3px; padding: 0 3px; font-family: var(--font-ui); font-size: .82em; white-space: nowrap; }
+/* Կարճ փաստաթղթեր (հրաման, դիմում, ծանուցում, որոշում, ակտ)՝ A4 էջ (210 մմ = 794 px), դաշտեր՝ 1,5 սմ, ձախից 2 սմ, տառաչափ 12։
+   Տարածությունները (d-gap) ձգվում են, որ փաստաթուղթը բաշխվի էջի վրա վերևից ներքև։ PDF-ը կառուցվում է նույն չափերով (drive.js՝ չափում է) */
+.sheet.doc.letter { width: 794px; max-width: 100%; min-height: 1123px; box-sizing: border-box; padding: 57px 57px 57px 76px; font-size: 16px; line-height: 1.564; }
+.sheet.doc.letter .d-flow { display: flex; flex-direction: column; min-height: 868px; }
+.sheet.doc.letter .d-flow > * { flex: none; }
+.sheet.doc.letter .d-p { margin: 0 0 8px; text-indent: 47px; }
+.sheet.doc.letter .d-p.d-nind, .sheet.doc.letter .d-p.d-quote { text-indent: 0; }
+.sheet.doc.letter .d-sub, .sheet.doc.letter .d-sub2 { padding-left: 0; }
+.sheet.doc.letter .d-flow > .d-gap { flex: 1 1 0; min-height: 14px; max-height: 46px; height: auto; }
+.sheet.doc.letter .d-flow > .d-gap.g2 { flex-grow: 2; max-height: 76px; }
+.sheet.doc.letter .d-flow > .d-gap.g3 { flex-grow: 3; max-height: 110px; }
+.sheet.doc.letter .d-title { margin: 0; letter-spacing: 0; }
+.sheet.doc.letter .d-org { font-size: 17.33px; padding-bottom: 10px; border-bottom: 1px solid currentColor; }
+.sheet.doc.letter .d-main { font-size: 18.67px; margin-bottom: 4px; }
+.sheet.doc.letter .d-main.d-long { font-size: 16px; }
+.sheet.doc.letter .d-orgname { font-size: 17.33px; }
+.sheet.doc.letter .d-subj { margin-bottom: 2px; }
+.sheet.doc.letter .d-subt { margin: 0 0 2px; }
+.sheet.doc.letter .d-right { margin: 0 0 0 auto; width: fit-content; min-width: 45%; max-width: 58%; line-height: 1.5; gap: 1px; }
+.sheet.doc.letter .d-row { gap: 24px; }
+.sheet.doc.letter .d-signs { display: grid; grid-template-columns: fit-content(42%) 130px minmax(0, 1fr); column-gap: 14px; align-items: end; }
+.sheet.doc.letter .d-signs > * { padding-top: 30px; min-width: 0; }
+.sheet.doc.letter .d-signs > .r0 { padding-top: 0; }
+.sheet.doc.letter .d-signs > .e, .sheet.doc.letter .d-signs > .s-d { padding-top: 4px; }
+.sheet.doc.letter .s-ln:not(.e) { border-bottom: 1px solid currentColor; height: 1.1em; box-sizing: content-box; }
+.sheet.doc.letter .d-cols, .sheet.doc.letter .d-tblw { margin: 0; }
+.sheet.doc.letter .d-cols { font-size: 14.67px; line-height: 1.5; }
+.sheet.doc.letter .d-tbl { font-size: 12px; line-height: 1.5; }
+.sheet.doc.letter .d-tbl th, .sheet.doc.letter .d-tbl td { padding: 2.67px 4px; }
+/* Շապիկ (1.1–1.3)՝ A4 էջի մեջտեղում. անունը՝ 28pt, տվյալները՝ 14pt (PDF-ում նույնը՝ Code.gs, COVER_) */
+.sheet.doc.letter.cover { display: flex; flex-direction: column; justify-content: center; }
+.sheet.doc .d-cover { text-align: center; }
+.sheet.doc .d-cover-name { font-size: 37.33px; line-height: 1.36; overflow-wrap: anywhere; text-wrap: balance; }
+.sheet.doc .d-cover-det { margin-top: 56px; font-size: 18.67px; line-height: 1.564; display: grid; gap: 10px; }
+/* PDF-ի համար չափում (drive.js)՝ միշտ A4, էկրանի չափից անկախ */
+.sheet.doc.letter.d-measure { position: fixed !important; left: -20000px !important; top: 0 !important; visibility: hidden !important; pointer-events: none;
+  width: 794px !important; max-width: none !important; min-height: 0 !important; padding: 57px 57px 57px 76px !important; font-size: 16px !important; line-height: 1.564 !important; margin: 0 !important; box-shadow: none !important; }
+.sheet.doc.letter.d-measure .d-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; gap: 28px !important; }
 .tpl-raw { font-family: var(--font-doc); font-size: 13px; line-height: 1.55; white-space: pre-wrap; tab-size: 8; }
 .tpl-raw .d-gap { height: .8em; }
 .tpl-raw .tgc { font-family: var(--font-code); font-size: 11.5px; background: var(--accent-soft); color: var(--accent-fg); border-radius: 4px; padding: 0 3px; white-space: nowrap; }
@@ -433,7 +471,7 @@ table.t { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .modal .mb { padding: 8px 20px 16px; display: flex; flex-direction: column; gap: 12px; }
 .modal .mf { padding: 12px 20px; border-top: 1px solid var(--line-2); display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .toasts { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 90; display: flex; flex-direction: column; gap: 8px; }
-.toast { background: var(--ink); color: var(--surface); padding: 10px 14px; border-radius: 10px; box-shadow: var(--shadow); font-size: 13px; max-width: 360px; }
+.toast { background: var(--ink); color: var(--surface); padding: 10px 14px; border-radius: 10px; box-shadow: var(--shadow); font-size: 13px; max-width: 360px; cursor: pointer; overflow-wrap: anywhere; }
 
 /* ---------- Timesheet ---------- */
 .ts { border-collapse: separate; border-spacing: 0; font-size: 12px; }
@@ -652,6 +690,14 @@ hr.sep { border: 0; border-top: 1px solid var(--line-2); margin: 4px 0; }
   .form .w2 { grid-column: auto; }
   .sheet { padding: 28px 22px; }
   .sheet.doc { padding: 24px 18px; font-size: 13px; }
+  .sheet.doc.letter:not(.d-measure) { width: auto; min-height: 0; padding: 24px 18px; font-size: 14px; }
+  .sheet.doc.letter:not(.d-measure) .d-flow { min-height: 0; }
+  .sheet.doc.letter:not(.d-measure) .d-p { text-indent: 24px; }
+  .sheet.doc.letter:not(.d-measure) .d-right { min-width: 0; max-width: 100%; }
+  .sheet.doc.letter:not(.d-measure) .d-signs { grid-template-columns: fit-content(45%) 90px minmax(0, 1fr); }
+  .sheet.doc.letter.cover:not(.d-measure) { aspect-ratio: 210 / 297; padding: 24px 18px; }
+  .sheet.doc .d-cover-name { font-size: 26px; }
+  .sheet.doc .d-cover-det { margin-top: 32px; font-size: 15px; gap: 6px; }
   .sheet.doc .d-cols { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .sheet.doc .d-right { max-width: 100%; }
   .sheetwrap { padding: 8px; }
@@ -871,7 +917,7 @@ input.bad { border-color: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, v
 <noscript><p style="padding:24px">Numetrix HR-ը աշխատում է միայն JavaScript-ով։</p></noscript>
 <script>window.NHR_SITE = true;</script>
 <script src="config.js"></script>
-<script>window.NHR_BUILD = 'ed124b6ce9';</script>
+<script>window.NHR_BUILD = '7af6d0a135';</script>
 <script>
 /* Numetrix HR — ընդհանուր տեղեկատուներ, որոնք եկել են ՀԾ-ից կամ ստանդարտից։
    Համայնքներ՝ 930 տող ՀԾ-ի նկարներից (առանց ԼՂՀ-ի), երկրներ՝ ISO 3166 թվային կոդեր։ */
@@ -1068,14 +1114,14 @@ window.NHR_CATALOG = {
   ],
   docs: [
     { code: '1.1', name: 'Աշխատանքային պայմանագրի կնքում աշխատակցի հետ', kind: 'hire', numbers: ['contract', 'order'], longTerm: true,
-      pack: ['Դիմում', 'Ընդունման հրաման', 'Աշխատանքային պայմանագիր', 'Հավելված 1'] },
+      pack: ['Շապիկ', 'Դիմում', 'Ընդունման հրաման', 'Աշխատանքային պայմանագիր', 'Հավելված 1'] },
     /* companyOnly․ ԱՁ-ի և մասնաճյուղի համար չի առաջարկվում։ Տնօրենի համար հրաման չի կազմվում․ ընդունման հիմքը հիմնադրի որոշումն է
        կամ հիմնադիրների ընդհանուր ժողովի արձանագրությունը (կազմակերպության քարտից), գործառույթները՝ պայմանագրի 6-րդ կետում։ */
     { code: '1.2', name: 'Աշխատանքային պայմանագրի կնքում տնօրենի հետ', kind: 'hire', role: 'director', companyOnly: true, numbers: ['contract'], longTerm: true,
-      basis: ['Հիմնադրի որոշում կամ հիմնադիրների ընդհանուր ժողովի արձանագրություն'], pack: ['Աշխատանքային պայմանագիր'] },
+      basis: ['Հիմնադրի որոշում կամ հիմնադիրների ընդհանուր ժողովի արձանագրություն'], pack: ['Շապիկ', 'Աշխատանքային պայմանագիր'] },
     /* Գլխավոր հաշվապահի գործառույթները պայմանագրի 6-րդ կետում են, առանձին հավելված չի կազմվում (ինչպես 1.2-ում) */
     { code: '1.3', name: 'Աշխատանքային պայմանագրի կնքում գլխավոր հաշվապահի հետ', kind: 'hire', role: 'chief', numbers: ['contract', 'order'], longTerm: true,
-      pack: ['Դիմում', 'Ընդունման հրաման', 'Աշխատանքային պայմանագիր'] },
+      pack: ['Շապիկ', 'Դիմում', 'Ընդունման հրաման', 'Աշխատանքային պայմանագիր'] },
     /* Աշակերտ (ՀՀ ԱՕ 201.1՝ մասնագիտական ուսուցում աշխատանքի ընդունվելուց առաջ, մինչև 5 ամիս, կրթաթոշակ՝ առնվազն նվազագույն աշխատավարձ)
        և փորձնակ (ՀՀ ԱՕ 201.3՝ աշխատանքային պրակտիկա, մինչև 2 ամիս, մեկ անգամ, շաբաթական մինչև 20 ժամ, քաղաքացիաիրավական բնույթի)։
        Աշխատանքային հարաբերություններ չեն․ պայմանագրի համարը՝ տաբելային համարը։ Աշակերտի համար՝ նաև հրաման (պատվիրատուի որոշմամբ, 2026-10-15), փորձնակի համար՝ միայն պայմանագիր */
@@ -2785,8 +2831,9 @@ window.NHR_DEMO = function () {
   NHR.toast = (msg) => {
     let box = document.querySelector('.toasts');
     if (!box) { box = h('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' }); document.body.appendChild(box); }
-    const t = h('div', { class: 'toast' }, msg); box.appendChild(t);
-    setTimeout(() => t.remove(), 2800);
+    /* երկար հաղորդագրությունը (օր.՝ սխալի պատճառը) մնում է ավելի երկար, մինչև 12 վայրկյան. սեղմելով՝ փակվում է */
+    const t = h('div', { class: 'toast', title: 'Սեղմեք՝ փակելու համար', onclick: () => t.remove() }, msg); box.appendChild(t);
+    setTimeout(() => t.remove(), Math.min(12000, Math.max(2800, String(msg).length * 90)));
   };
   NHR.modal = ({ title, body, actions, wide }) => {
     const bg = h('div', { class: 'modal-bg', onmousedown: (e) => { if (e.target === bg) close(); } });
@@ -3104,7 +3151,7 @@ window.NHR_DEMO = function () {
     if (!info) return;
     const st = S();
     st.syncConfig = { tasksUrl: info.tasksUrl || '', secretSet: !!info.secret, trigger: !!info.trigger, lastPull: info.lastOk || '', lastError: info.lastError || '',
-      lastErrorAt: info.lastErrorAt || '', since: info.since || '', v: info.v || '', lastCheck: (st.syncConfig || {}).lastCheck || '', checkOk: (st.syncConfig || {}).checkOk };
+      lastErrorAt: info.lastErrorAt || '', since: info.since || '', v: info.v || '', lastCheck: (st.syncConfig || {}).lastCheck || '', checkOk: (st.syncConfig || {}).checkOk, checkError: (st.syncConfig || {}).checkError || '' };
   };
 
   /* ---------- պահպանում ---------- */
@@ -3217,8 +3264,8 @@ window.NHR_DEMO = function () {
     await poll(true);
     return r;
   };
-  NHR.serverPing = () => NHR.api('syncPing', {}).then(r => { const st = S(); st.syncConfig = Object.assign({}, st.syncConfig, { lastCheck: r.checkedAt, checkOk: true }); return r; },
-    e => { const st = S(); st.syncConfig = Object.assign({}, st.syncConfig, { lastCheck: new Date().toISOString(), checkOk: false }); throw e; });
+  NHR.serverPing = () => NHR.api('syncPing', {}).then(r => { const st = S(); st.syncConfig = Object.assign({}, st.syncConfig, { lastCheck: r.checkedAt, checkOk: true, checkError: '' }); return r; },
+    e => { const st = S(); st.syncConfig = Object.assign({}, st.syncConfig, { lastCheck: new Date().toISOString(), checkOk: false, checkError: e && e.message ? e.message : String(e) }); throw e; });
   NHR.serverSetTasksUrl = (url) => NHR.api('syncSetUrl', { url }).then(info => { syncCfg(info); return info; });
   NHR.serverSyncInfo = () => NHR.api('syncInfo', {}).then(info => { syncCfg(info); return info; });
   NHR.serverOrgLookup = (tin) => NHR.api('orgLookup', { tin });
@@ -3789,12 +3836,16 @@ window.NHR_TPL_TEXT = {
     '6.1': [{ name: 'Ծանուցում', headRight: 'title', when: 'notice' }, { name: 'Հիմնադրի որոշում', when: 'aSole' }, { name: 'Ժողովի արձանագրություն', when: 'aMeeting' },
       { name: 'Համաձայնագիր' }, { name: 'Հրաման', when: 'order' }],
     /* 6.2․ համաձայնագիր և նոր գնացուցակ (ծառայությունները կամ գները փոխվելիս) */
-    '6.2': [{ name: 'Համաձայնագիր' }, { name: 'Հավելված (նոր գնացուցակ)', headRight: 2, when: 'prices' }]
+    '6.2': [{ name: 'Համաձայնագիր' }, { name: 'Հավելված (նոր գնացուցակ)', headRight: 2, when: 'prices', contract: 'prices' }]
   };
   /* 3.2–4.10՝ նույն կառուցվածքը, ինչ 3.1-ը (դիմում և հրաման) */
   ['3.2', '3.3', '3.4', '3.5', '4.1', '4.2', '4.3', '4.4', '4.5', '4.6', '4.7', '4.8', '4.9', '4.10'].forEach(c => { NHR.TPL_PARTS[c] = [{ name: 'Դիմում', headRight: 'title' }, { name: 'Հրաման' }]; });
   NHR.PART_WHEN = { sole: '1 հիմնադիր', meeting: '2 և ավելի հիմնադիր', notice: 'գործատուի նախաձեռնությամբ', order: 'պաշտոնը կամ ստորաբաժանումը փոխվելիս', prices: 'ծառայությունները փոխվելիս',
     aSole: 'տնօրենի պայմանագիր, 1 հիմնադիր', aMeeting: 'տնօրենի պայմանագիր, 2 և ավելի հիմնադիր' };
+  /* Շապիկ՝ աշխատանքի ընդունման փաստաթղթերի (1.1–1.3) առաջին էջը (պատվիրատուի օրինակով, 2026-10-19)։
+     Ձևանմուշի տեքստ չունի․ ավելանում է միայն փաստաթղթում (vals-ով), ձևանմուշների խմբագրիչում չի երևում */
+  NHR.COVER_CODES = ['1.1', '1.2', '1.3'];
+  NHR.COVER_NAME = 'Շապիկ';
   /* vals տրված լինելու դեպքում մնում են միայն այն էջերը, որոնց when-ը համընկնում է (vals.__founderKey) */
   NHR.tplParts = (code, vals) => {
     const text = (window.NHR_TPL_TEXT || {})[code];
@@ -3804,7 +3855,9 @@ window.NHR_TPL_TEXT = {
     /* 5.1, 5.2՝ նոր գործուղման էջերը (when «trip») կամ ժամկետի փոփոխության հրամանը (when «change»)՝ vals.__when-ով,
        6.1, 6.2՝ ծանուցում, հրաման, նոր գնացուցակ (vals.__when՝ ցուցակ) */
     const w = vals ? [].concat(vals.__when || []) : [];
-    return vals ? all.filter(x => !x.when || x.when === vals.__founderKey || w.includes(x.when)) : all;
+    if (!vals) return all;
+    const out = all.filter(x => !x.when || x.when === vals.__founderKey || w.includes(x.when));
+    return NHR.COVER_CODES.includes(code) ? [{ name: NHR.COVER_NAME, kind: 'cover', text: '' }].concat(out) : out;
   };
 
   /* ---------- Թեգերի բառարան ---------- */
@@ -3899,7 +3952,28 @@ window.NHR_TPL_TEXT = {
   NHR.hoursText = (o, t) => { const x = NHR.hours(o, t); return x.free ? 'Ազատ գրաֆիկ' : x.from ? `${x.from}–${x.to}` + (x.bFrom ? `, ընդմիջում՝ ${x.bFrom}–${x.bTo}` : ', առանց ընդմիջման') : ''; };
 
   /* ---------- Թեգերի արժեքները ---------- */
-  NHR.place = (o) => { const m = /ք\. ([^,]+)/.exec((o && o.legalAddress) || ''); return m ? `ք. ${m[1].trim()}` : ''; };
+  /* Կազմման վայրը՝ իրավաբանական հասցեից (չկա՝ գործունեության առաջին հասցեից). «ք. Երևան», «ք. Գյումրի», «գ. Արզնի»։
+     Կետը՝ «.» կամ «․» (հայերեն ստեղնաշարից), բացատով կամ առանց։ «ք.» չկա, բայց հասցեում «Երևան» է՝ «ք. Երևան» */
+  const AL = '\\u0531-\\u0556\\u0561-\\u0587'; // հայերեն տառեր (առանց ՝ ՛ ՞ նշանների)
+  const PLACE_RE = new RegExp(`(?:^|[\\s,;(])([քՔգԳ])\\s*[.․·‧]\\s*([^,;()\\d՝։]+)`);
+  const YEREVAN_RE = new RegExp(`(?:^|[^${AL}])Երևան(?:ի)?(?![${AL}])|yerevan|ереван`, 'i');
+  let placeNames = null;
+  const placeName = (s) => {
+    s = s.replace(/\s+/g, ' ').trim();
+    if (!placeNames) placeNames = [...new Set(['regions', 'communes'].flatMap(k => ((NHR.ref(k) || {}).rows || []).map(r => String(r.name || '').replace(/\s*\(.*\)\s*$/, '').trim())).filter(Boolean))]
+      .sort((a, b) => b.length - a.length);
+    const hit = placeNames.find(n => s.startsWith(n) && !new RegExp(`[${AL}-]`).test(s.charAt(n.length)));
+    return hit || (new RegExp(`^[${AL}-]+`).exec(s) || [''])[0];
+  };
+  const placeOf = (a) => {
+    a = String(a || '');
+    const m = PLACE_RE.exec(a), n = m ? placeName(m[2]) : '';
+    if (n) return `${/[գԳ]/.test(m[1]) ? 'գ.' : 'ք.'} ${n}`;
+    return YEREVAN_RE.test(a) ? 'ք. Երևան' : '';
+  };
+  NHR.place = (o) => placeOf(o && o.legalAddress) || placeOf(o && (o.activityAddresses || [])[0] && o.activityAddresses[0].address);
+  /* «ք. Փարիզ» / «ք․ Փարիզ» → «Փարիզ» (քաղաքի դաշտերում) */
+  NHR.cityBare = (s) => String(s || '').replace(/^\s*[քՔ]\s*[.․·‧]\s*/, '').trim();
   const refRow = (key, code) => NHR.ref(key).rows.find(r => r.code === String(code));
   const joinAnd = (a) => a.length > 1 ? `${a.slice(0, -1).join(', ')} և ${a[a.length - 1]}` : (a[0] || '');
   NHR.personAddress = (p) => {
@@ -4044,6 +4118,8 @@ window.NHR_TPL_TEXT = {
       Founder_Name: fs.name, Founder_Basis: fs.basis, Founders_List: fs.list, Founders_Sign: fs.sign,
       Decision_Num: fs.num, Decision_Date: NHR.docDate(fs.date),
       Employee_Name: p ? NHR.fullName(p) : '', Tabel_Num: e ? e.tabel : (f.tabel || ''), SSN: p ? p.ssn : '',
+      /* շապիկում՝ ազգանուն, անուն, հայրանուն */
+      __coverName: p ? [p.last, p.first, p.patronymic].map(x => String(x || '').trim()).filter(Boolean).join(' ') : '',
       Document_Info: idNum ? [`${low(NHR.refName('idDocType', idd.type))} № ${idNum}`, idd.givenDate ? `տրված ${NHR.docDate(idd.givenDate)}` : '', idd.givenBy ? `${NHR.decl(idd.givenBy, 'ի')} կողմից` : ''].filter(Boolean).join(', ') : '',
       Employee_Address: NHR.personAddress(p), Employee_Phone: p ? (p.mobile || p.phone || '') : '', Employee_Email: p ? (p.email || '') : '', Employee_Bank_Acc: p ? (p.depositAcc || '') : '',
       Position: NHR.orefName(o.id, 'positions', terms.position), Department: NHR.orefName(o.id, 'departments', terms.dept),
@@ -4101,10 +4177,74 @@ window.NHR_TPL_TEXT = {
       h('tbody', null, tb.rows.map(r => h('tr', null, r.map((x, i) => h('td', { class: cls(i) }, i ? h('span', { class: 'tv' }, x) : x))))),
       tb.foot ? h('tfoot', null, h('tr', null, h('td', { colspan: tb.head.length - 1 }, tb.foot[0]), h('td', { class: 'n' }, h('span', { class: 'tv' }, tb.foot[1])))) : null);
   };
+  /* Կարճ փաստաթղթերի (հրաման, դիմում, ծանուցում, որոշում, ակտ…) ստորագրության տողը՝
+     «Պաշտոն՝ _______ Անուն» և ըստ ցանկության TAB-ից հետո ամսաթվի տեղը։ Միայն ամսաթվի տողը («___» ___ 20___ թ.) ստորագրություն չէ */
+  const DATE_PH = /^«_+»\s*_+\s*20_+\s*թ\.?$/;
+  const signOf = (l) => {
+    let main = l, date = '';
+    const t = l.indexOf('\t');
+    if (t >= 0) { main = l.slice(0, t); date = l.slice(t + 1).trim(); }
+    if (DATE_PH.test(main.trim())) return null;
+    const m = /_{5,}/.exec(main);
+    return m ? { label: main.slice(0, m.index).trim(), name: main.slice(m.index + m[0].length).trim(), date } : null;
+  };
+  NHR.tplIsLetter = (part) => !!part && !part.contract && part.kind !== 'badge' && part.kind !== 'cover';
+  const segText = (l, vals) => NHR.tplLine(l, vals || {}).map(s => (typeof s === 'string' ? s : String(s.v != null && !s.miss ? s.v : 'XXXXXXXX'))).join('');
+  /* Շապիկ՝ «Ազգանուն Անուն Հայրանուն» մեծ տառերով, ապա պաշտոնը, աշխատանքի սկիզբը և կազմակերպությունը (էջի մեջտեղում).
+     չլրացված տվյալը՝ նշված (PDF-ում՝ դատարկ տող) */
+  const coverVal = (key, v, miss) => {
+    if (v) return h('span', { class: 'tv', title: `{{${key}}}` }, v);
+    if (miss) miss.add(key);
+    return h('mark', { class: 'tm', title: `{{${key}}} — չլրացված` }, NHR.tagLabel(key));
+  };
+  NHR.coverRender = (vals, miss) => [h('div', { class: 'd-cover' },
+    h('div', { class: 'd-cover-name' }, coverVal('Employee_Name', vals.__coverName, miss)),
+    h('div', { class: 'd-cover-det' },
+      h('div', null, 'Պաշտոն՝ ', coverVal('Position', cap(String(vals.Position || '').trim()), miss)),
+      h('div', null, 'Աշխատանքի սկիզբ՝ ', coverVal('Start_Date', vals.Start_Date, miss)),
+      h('div', null, coverVal('Company_Name', vals.Company_Name, miss))))];
   NHR.tplRender = (part, vals, miss) => {
+    if (part.kind === 'cover') return NHR.coverRender(vals, miss);
     const lines = part.text.split('\n').map(l => { const x = NHR.tplCond(l, vals).trim(); return /\{\{#If_/.test(l) && !x ? null : x; }).filter(l => l !== null);
+    /* letter՝ նոր տեսք (A4-ի վրա բաշխված տարածություններ, ստորագրությունները՝ սյունակներով), պայմանագրերը՝ առանց փոփոխության */
+    const letter = NHR.tplIsLetter(part);
     const out = []; let i = 0, gap = true;
     const push = (el) => { out.push(el); gap = false; };
+    const addGap = () => { const g = h('div', { class: 'd-gap' }); const pv = out[out.length - 1]; if (letter && pv && (pv.classList.contains('d-org') || pv.classList.contains('d-right'))) g.classList.add('g2'); out.push(g); gap = true; };
+    let signs = null, signGap = false, afterSigns = false, mainDone = false, titleRun = '', pendLabel = '';
+    /* r.raw՝ տողը թեգի արժեքից է (օր.՝ {{Act_Signs}}), ոչ թե ձևանմուշից */
+    const cell = (s, raw) => (raw ? (s ? [h('span', { class: 'tv' }, s)] : []) : segs(s, vals, miss));
+    const flushSigns = () => {
+      if (!signs) return;
+      const rows = [];
+      signs.forEach((r, k) => {
+        rows.push(h('div', { class: 's-l' + (k ? '' : ' r0') }, cell(r.label, r.raw && !r.tplLabel)), h('div', { class: 's-ln' + (k ? '' : ' r0') }), h('div', { class: 's-n' + (k ? '' : ' r0') }, cell(r.name, r.raw)));
+        if (r.date) rows.push(h('div', { class: 's-l e' }), h('div', { class: 's-ln e' }), h('div', { class: 's-n s-d' }, cell(r.date, r.raw)));
+      });
+      push(h('div', { class: 'd-signs' }, rows));
+      signs = null; afterSigns = true; pendLabel = '';
+      if (signGap) { addGap(); signGap = false; }
+    };
+    /* ստորագրություններից առաջ՝ ավելի մեծ (ձգվող) տարածություն։ Եթե նախորդ տողը նրանց վերնագիրն է («Ակտը կազմողներ՝»)՝ առանց բացատի */
+    const startSigns = () => {
+      const pv = out[out.length - 1];
+      if (pv && pv.classList.contains('d-gap')) pv.classList.add('g3');
+      else if (pv && pv.classList.contains('d-p') && /՝\s*$/.test(pv.textContent)) {
+        pv.classList.add('d-nind');
+        const pp = out[out.length - 2];
+        if (pp && pp.classList.contains('d-gap')) pp.classList.add('g3');
+      } else if (out.length) { addGap(); out[out.length - 1].classList.add('g3'); }
+      signs = [];
+    };
+    /* {{Act_Signs}}, {{Founders_Sign}}՝ արժեքի ամեն տողը ստորագրություն է */
+    const valueSigns = (l) => {
+      const one = /^\{\{([A-Za-z][A-Za-z0-9_]*)\}\}$/.exec(l);
+      if (!one) return null;
+      const v = String(vals[one[1]] == null ? '' : vals[one[1]]);
+      if (!/_{5,}/.test(v)) return null;
+      const rows = v.split('\n').map(x => x.trim()).filter(Boolean).map(signOf);
+      return rows.length && rows.every(Boolean) ? rows.map(r => Object.assign(r, { raw: true })) : null;
+    };
     if (part.headRight) {
       const head = [];
       for (; i < lines.length; i++) {
@@ -4112,7 +4252,7 @@ window.NHR_TPL_TEXT = {
         if (part.headRight === 'title' ? isTitle(l) : head.length >= part.headRight) break;
         if (l) head.push(h('div', null, segs(l, vals, miss)));
       }
-      if (head.length) { push(h('div', { class: 'd-right' }, head)); out.push(h('div', { class: 'd-gap' })); gap = true; }
+      if (head.length) { push(h('div', { class: 'd-right' }, head)); addGap(); }
     }
     /* Խորքը․ եթե էջում կան «1.», «2.» կետեր (ոչ վերնագիր), «6.1.»-ը նրանց ենթակետն է, իսկ «ա)»-ն՝ նախորդ կետի ենթակետը */
     const depth = (l) => { const m = /^(\d+(?:\.\d+)*)\.?\s/.exec(l); return m ? m[1].split('.').length : 0; };
@@ -4120,7 +4260,29 @@ window.NHR_TPL_TEXT = {
     let lastInd = 0, afterTitle = false;
     for (; i < lines.length; i++) {
       const l = lines[i], prevTitle = afterTitle; afterTitle = false;
-      if (!l) { if (!gap) { out.push(h('div', { class: 'd-gap' })); gap = true; } continue; }
+      if (!l) {
+        if (signs) { signGap = true; continue; }
+        if (!gap) addGap();
+        continue;
+      }
+      if (letter) {
+        const sg = signOf(l), vs = sg ? null : valueSigns(l);
+        /* «Հրամանին ծանոթացան՝» տողը, որին հաջորդում են առանց պաշտոնի ստորագրություններ՝ առաջինի պաշտոնն է */
+        if (!sg && !vs && /՝$/.test(l) && !isTitle(l)) {
+          const nx = i + 1 < lines.length ? signOf(lines[i + 1]) : null;
+          if (nx && !nx.label) { if (!signs) startSigns(); pendLabel = l; signGap = false; continue; }
+        }
+        if (sg || vs) {
+          if (!signs) startSigns();
+          (sg ? [sg] : vs).forEach(r => {
+            if (pendLabel && !r.label) { r.label = pendLabel; r.tplLabel = true; }
+            pendLabel = '';
+            signs.push(r);
+          });
+          signGap = false; continue;
+        }
+        if (signs) flushSigns();
+      }
       const tm = TABLE_RE.exec(l);
       if (tm) {
         const tb = (vals.__tables || {})[tm[1]];
@@ -4150,15 +4312,32 @@ window.NHR_TPL_TEXT = {
         i = j - 1; continue;
       }
       if (l.includes('\t')) { const [a, ...b] = l.split('\t'); push(h('div', { class: 'd-row' }, h('span', null, segs(a.trim(), vals, miss)), h('span', null, segs(b.join(' ').trim(), vals, miss)))); continue; }
-      if (isTitle(l)) { push(h('div', { class: 'd-title' }, segs(l, vals, miss))); afterTitle = true; continue; }
+      if (isTitle(l)) {
+        /* letter՝ կազմակերպության անվանումը (առաջին տողը), փաստաթղթի վերնագիրը, նրա շարունակությունը, «ՀՐԱՄԱՅՈՒՄ ԵՄ․» */
+        let k = '';
+        if (letter) {
+          const t = l.replace(/\{\{[^}]+\}\}/g, 'X').trim();
+          if (/^\{\{Company_Name\}\}$/.test(l)) k = out.length ? 'd-orgname' : 'd-org';
+          else if (/[։:․.]$/.test(t)) k = 'd-decree';
+          else if (!mainDone) { k = 'd-main' + (segText(l, vals).length > 38 ? ' d-long' : ''); mainDone = true; }
+          else if (prevTitle && /^d-(main|subj)/.test(titleRun)) k = 'd-subj';
+          titleRun = k;
+        }
+        push(h('div', { class: 'd-title' + (k ? ' ' + k : '') }, segs(l, vals, miss))); afterTitle = true; continue;
+      }
+      titleRun = '';
       /* Վերնագրին անմիջապես հաջորդող կարճ տողերը (օր.՝ «տնօրենի հետ», «{{Company_Name}}-ի միակ հիմնադրի»)՝ կենտրոնում */
       const bare = l.replace(/\{\{[^}]+\}\}(-?[ա-և]+)?/g, 'X');
       if (prevTitle && /[ա-և]/.test(bare) && bare.length <= 40 && !/[։:]/.test(bare)) { push(h('div', { class: 'd-subt' }, segs(l, vals, miss))); afterTitle = true; continue; }
       const dp = depth(l);
       let ind = 0;
       if (dp) { ind = Math.max(0, dp - base); lastInd = ind; } else if (/^[ա-ֆ]\)\s/.test(l)) ind = lastInd + 1;
-      push(h('p', { class: 'd-p' + (ind === 1 ? ' d-sub' : ind > 1 ? ' d-sub2' : '') + (/_{5,}/.test(l) ? ' d-sign' : '') }, segs(l, vals, miss)));
+      const under = /_{5,}/.test(l);
+      /* letter՝ ստորագրություններից հետո (ամսաթիվ և այլն) և ամսաթվի տեղի տողը՝ առանց խորքի */
+      const nind = letter && (afterSigns || under);
+      push(h('p', { class: 'd-p' + (ind === 1 ? ' d-sub' : ind > 1 ? ' d-sub2' : '') + (under && !letter ? ' d-sign' : '') + (nind ? ' d-nind' : '') }, segs(l, vals, miss)));
     }
+    if (signs) { signGap = false; flushSigns(); }
     return out;
   };
   /* Ձևանմուշի տեքստը՝ թեգերով (Կարգավորումներ → Ձևանմուշներ) */
@@ -4213,7 +4392,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
      Տողը՝ { country, city, currency, perDiem, lodging, alt?, season?, note? }․ քաղաքը դատարկ՝ երկրի մնացած տարածքի համար,
      season՝ ամսաթվային միջակայքեր (ԱԱ-ՕՕ), alt՝ նույն չափերը այլ արժույթով (եվրո)։
      Նախ՝ «Կարգավորումներ → Գործուղում»-ում ձեռքով ավելացված տողերը, հետո՝ ներկառուցված ցանկը (գործում է from-ից)։ */
-  const cityKey = (s) => String(s || '').replace(/^ք\.\s*/, '').trim().toLowerCase();
+  const cityKey = (s) => NHR.cityBare(s).toLowerCase();
   const inSeason = (r, md) => !r.season || !r.season.length || r.season.some(([a, b]) => (a <= b ? md >= a && md <= b : md >= a || md <= b));
   NHR.tripForeignNorm = (country, city, date) => {
     if (!country) return null;
@@ -4255,11 +4434,11 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
   const isForeign = (s, def) => (def ? !def.domestic : !!s.country);
   /* Բնակավայրը՝ «ք. Գյումրի», «գ. Արզնի», «Գյումրի համայնք, Արթիկ», կամ միայն քաղաքը */
   const locality = (s) => {
-    const city = (s.city || '').replace(/^ք\.\s*/, '').trim(), com = NHR.refName('communes', s.commune);
+    const city = NHR.cityBare(s.city), com = NHR.refName('communes', s.commune);
     return com ? (city && city !== com ? `${com} համայնք, ${city}` : `${(s.commune || '').slice(-2) === '02' ? 'գ.' : 'ք.'} ${com}`) : city;
   };
   const placeOne = (s, def) => {
-    const city = (s.city || '').replace(/^ք\.\s*/, '').trim();
+    const city = NHR.cityBare(s.city);
     if (isForeign(s, def)) return [NHR.refName('countries', s.country), city ? `ք. ${city}` : ''].filter(Boolean).join(', ');
     if (s.region === YEREVAN) return 'ք. Երևան';
     const reg = s.region ? `${NHR.decl(NHR.refName('regions', s.region), 'ի')} մարզ` : '';
@@ -4269,7 +4448,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
   NHR.countryGen = (c) => !c ? '' : /ություն$/.test(c) ? c.replace(/ություն$/, 'ության') : /ի$/.test(c) ? c + 'ի' : NHR.decl(c, 'ի');
   /* Մի քանի վայրի դեպքում՝ սեռական հոլովով («Շիրակի մարզի ք. Գյումրի և Լոռու մարզի ք. Վանաձոր») */
   const placeGen = (s, def) => {
-    const city = (s.city || '').replace(/^ք\.\s*/, '').trim();
+    const city = NHR.cityBare(s.city);
     if (isForeign(s, def)) { const c = NHR.refName('countries', s.country); return city ? `${c ? NHR.countryGen(c) + ' ' : ''}ք. ${city}` : c; }
     if (s.region === YEREVAN) return 'ք. Երևան';
     const loc = locality(s), rn = NHR.refName('regions', s.region);
@@ -4283,7 +4462,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
   };
   /* Կարճ անվանումը (ծախսերի տողերում, վկայականի նշումներում)՝ բնակավայրը կամ երկիրը */
   NHR.tripPlaceShort = (s, def) => {
-    const city = (s.city || '').replace(/^ք\.\s*/, '').trim();
+    const city = NHR.cityBare(s.city);
     if (isForeign(s, def)) return city ? `ք. ${city}` : NHR.refName('countries', s.country);
     if (s.region === YEREVAN) return 'ք. Երևան';
     return locality(s) || (s.region ? `${NHR.decl(NHR.refName('regions', s.region), 'ի')} մարզ` : '');
@@ -6231,11 +6410,12 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
         h('button', { class: 'wt-x', type: 'button', 'aria-label': `Փակել՝ ${title}`, title: 'Փակել', onclick: (e) => { e.stopPropagation(); NHR.closeTab(t.id); } }, icon('x')));
     }));
     top.innerHTML = '';
-    top.append(
+    /* append(null)-ը գրում է «null» տեքստը՝ դատարկերը հանվում են */
+    top.append(...[
       h('button', { class: 'btn ghost sm menu-btn', title: 'Ուղղորդիչ', 'aria-label': 'Բացել կամ թաքցնել ուղղորդիչը', onclick: (e) => { e.stopPropagation(); toggleNav(); } }, icon('side')),
       strip,
       h('span', { class: 'orgl', title: o ? NHR.orgName(o) : '' }, o ? NHR.orgName(o) : ''), NHR.saveBadge ? NHR.saveBadge() : null, sp
-    );
+    ].filter(Boolean));
     const act = strip.querySelector('.wtab.on'); if (act) act.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 
@@ -7697,12 +7877,13 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
     const draw = () => {
       box.innerHTML = '';
       const def = NHR.docDef(x.code);
-      box.append(
+      /* append(null)-ը գրում է «null» տեքստը՝ դատարկերը հանվում են */
+      box.append(...[
         h('div', null, h('b', null, NHR.fullName(NHR.empPerson(e))), h('span', { class: 'muted' }, ` · տաբ. N ${e.tabel}`)),
         optionCards(e, x.code, (c) => { x.code = c; draw(); }),
         h('div', { class: 'form' }, field('Պայմանագրի ամսաթիվ', inp(x, 'date', { type: 'date', onChange: draw }), { req: true }),
           field('Կկազմվի', h('div', { class: 'small', style: { paddingTop: '6px' } }, NHR.docPack(def, NHR.org(e.orgId)).join(', ')))),
-        def.role === 'director' && NHR.contractAllowed(e, x.code) ? NHR.dirAppoint(NHR.org(e.orgId), x.date, draw) : null);
+        def.role === 'director' && NHR.contractAllowed(e, x.code) ? NHR.dirAppoint(NHR.org(e.orgId), x.date, draw) : null].filter(x => x != null));
     };
     draw();
     NHR.modal({ title: 'Ստեղծել պայմանագիր', wide: true, body: box,
@@ -8715,6 +8896,8 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
     const flush = () => { if (alt.length) { out.push(alt.map((n, i) => i ? NHR.lowFirst(n) : n).join(' կամ ')); alt = []; } };
     parts.forEach(x => { if (x.when && !o) alt.push(x.name); else { flush(); out.push(x.name); } });
     flush();
+    /* կազմակերպությունն առանց (vals-ի) շապիկը tplParts-ում չկա */
+    if (NHR.COVER_CODES.includes(def.code) && out[0] !== NHR.COVER_NAME) out.unshift(NHR.COVER_NAME);
     return out;
   };
   const place = NHR.place;
@@ -8788,7 +8971,10 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       const part = parts[viewTab], be = NHR.emp(d.empId);
       sheet = part.kind === 'badge'
         ? (be ? h('div', { class: 'badges' }, NHR.badgeCard(be, { size: o.badgeSize, extra: [['Աշխատանքի սկիզբ', vals.Start_Date]] })) : null)
-        : h('div', { class: 'sheet doc' + (vts.plain ? ' plain' : '') }, NHR.tplRender(part, vals));
+        : part.kind === 'cover' ? h('div', { class: 'sheet doc letter cover' + (vts.plain ? ' plain' : '') }, NHR.tplRender(part, vals))
+        : NHR.tplIsLetter(part)
+          ? h('div', { class: 'sheet doc letter' + (vts.plain ? ' plain' : '') }, h('div', { class: 'd-flow' }, NHR.tplRender(part, vals)))
+          : h('div', { class: 'sheet doc' + (vts.plain ? ' plain' : '') }, NHR.tplRender(part, vals));
     } else {
       const isDesc = /նկարագիր/.test(cur);
       const descObj = NHR.desc((def.kind === 'hire' ? d.fields : NHR.terms(NHR.emp(d.empId) || { history: [] }, d.date)).desc);
@@ -9925,7 +10111,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
           field('Նշում', inp(x, 'note', { ph: 'օր.՝ ըստ գործատուի որոշման' }), { cls: 'w2' })),
         actions: [{ label: 'Չեղարկել' }, { label: 'Ավելացնել', cls: 'primary', onClick: () => {
           if (!x.country || !(Number(x.perDiem) > 0)) { NHR.toast('Լրացրեք երկիրը և օրապահիկը'); return false; }
-          x.city = (x.city || '').replace(/^ք\.\s*/, '').trim(); x.note = (x.note || '').trim(); if (!x.note) delete x.note;
+          x.city = NHR.cityBare(x.city); x.note = (x.note || '').trim(); if (!x.note) delete x.note;
           x.perDiem = Number(x.perDiem); x.lodging = Number(x.lodging) || 0;
           S.tripForeign.push(x); NHR.save(); NHR.rerender(); } }] });
       };
@@ -9982,7 +10168,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
               ['Վերջին հաջող համաժամեցում', C.lastPull ? NHR.fmtDT(C.lastPull) : '—'],
               ['«Սպասող»', String(nPend)], ['Խնդիր ունեցող', String(nErr)],
               ['Վերջին սխալ', C.lastError ? `${C.lastError} (${NHR.fmtDT(C.lastErrorAt)})` : '—'],
-              ['Վերջին ստուգում', C.lastCheck ? `${NHR.fmtDT(C.lastCheck)} · ${C.checkOk ? 'կապ կա' : 'կապ չկա'}` : '—']]),
+              ['Վերջին ստուգում', C.lastCheck ? `${NHR.fmtDT(C.lastCheck)} · ${C.checkOk ? 'կապ կա' : 'կապ չկա' + (C.checkError ? '՝ ' + C.checkError : '')}` : '—']]),
             h('div', { class: 'row' },
               srv && can ? btn('Պահպանել հասցեն', saveUrl, '', 'check') : null,
               off(btn('🔌 Ստուգել կապը', ping, '')),
@@ -10062,13 +10248,38 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
   };
   const clean = (s) => s.replace(/[ \t]+\n/g, '\n').replace(/\n[ \t]+/g, '\n').trim();
   const lineOf = (el) => clean(txt(el));
-  function blockOf(el) {
+  /* meas՝ letter էջի չափումը (pt). գծի բարձրությունները, հասցեատիրոջ մասի ձախ եզրը, ստորագրությունների սյունակները */
+  function blockOf(el, meas) {
     const c = el && el.classList;
     if (!c) return null;
-    if (c.contains('d-gap')) return { t: 'gap' };
-    if (c.contains('d-title')) return { t: 'title', x: lineOf(el) };
+    const m = (map) => (meas && meas[map].has(el) ? meas[map].get(el) : null);
+    /* շապիկ՝ { n: անունը, lines: տվյալները }, x՝ նույնը տեքստով (հին սերվերը այն կգրի որպես պարբերություն) */
+    if (c.contains('d-cover')) {
+      const [nm, det] = el.children, n = nm ? lineOf(nm) : '', lines = det ? [...det.children].map(lineOf) : [];
+      return { t: 'cover', n, lines, x: [n].concat(lines).join('\n') };
+    }
+    if (c.contains('d-gap')) { const g = { t: 'gap' }; if (m('gaps') != null) g.h = m('gaps'); if (c.contains('g2')) g.w = 2; if (c.contains('g3')) g.w = 3; return g; }
+    if (c.contains('d-title')) {
+      const k = c.contains('d-org') ? 'org' : c.contains('d-orgname') ? 'orgname' : c.contains('d-main') ? 'main' : c.contains('d-subj') ? 'subj' : c.contains('d-decree') ? 'decree' : '';
+      const t = { t: 'title', x: lineOf(el) };
+      if (k) t.k = k;
+      if (c.contains('d-long')) t.long = 1;
+      return t;
+    }
     if (c.contains('d-subt')) return { t: 'subt', x: lineOf(el) };
-    if (c.contains('d-right')) return { t: 'right', lines: [...el.children].map(lineOf) };
+    if (c.contains('d-right')) { const r = { t: 'right', lines: [...el.children].map(lineOf) }; if (m('right') != null) r.l = m('right'); return r; }
+    /* ստորագրություններ՝ [պաշտոն, գիծ, անուն] եռյակներ, ամսաթվի տողը (e)՝ նախորդի տակ */
+    if (c.contains('d-signs')) {
+      const kids = [...el.children], rows = [];
+      const nl = (x) => Number(x.dataset.ln) || 1; // չափված տողերի քանակը (measure)
+      for (let k = 0; k + 2 < kids.length; k += 3) {
+        if (kids[k + 1].classList.contains('e')) { if (rows.length) { const r = rows[rows.length - 1]; r.d = lineOf(kids[k + 2]); r.dl = nl(kids[k + 2]); } continue; }
+        rows.push({ l: lineOf(kids[k]), n: lineOf(kids[k + 2]), ll: nl(kids[k]), nl: nl(kids[k + 2]) });
+      }
+      const s = { t: 'signs', rows };
+      if (m('signs')) s.w = m('signs');
+      return s;
+    }
     if (c.contains('d-row')) { const [a, b] = el.children; return { t: 'row', l: a ? lineOf(a) : '', r: b ? lineOf(b) : '' }; }
     if (c.contains('d-cols')) return { t: 'cols', c: [...el.children].map(col => [...col.children].map(x => x.classList.contains('d-gap') ? '' : lineOf(x))) };
     if (c.contains('d-tblw')) {
@@ -10081,15 +10292,60 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       const ft = t.querySelector('tfoot tr');
       return { t: 'table', head, rows, align, foot: ft ? [lineOf(ft.children[0]), lineOf(ft.children[ft.children.length - 1])] : null };
     }
-    return { t: 'p', x: lineOf(el), i: c.contains('d-quote') ? 'q' : c.contains('d-sub2') ? 2 : c.contains('d-sub') ? 1 : 0, s: c.contains('d-sign') ? 1 : 0 };
+    const p = { t: 'p', x: lineOf(el), i: c.contains('d-quote') ? 'q' : c.contains('d-sub2') ? 2 : c.contains('d-sub') ? 1 : 0, s: c.contains('d-sign') ? 1 : 0 };
+    if (c.contains('d-nind')) p.ni = 1;
+    return p;
   }
-  /* Փաստաթղթի բոլոր էջերը (փաթեթը), առանց անվանաքարտի։ Տեքստ չունեցողի համար՝ null */
-  NHR.docModel = (d) => {
+  /* Կարճ փաստաթղթի էջը՝ անտեսանելի A4 թերթում (նույն CSS-ով, ինչ էկրանին). PDF-ում նույն տարածություններն են (px → pt) */
+  const PT = (px) => Math.round(px * 0.75 * 10) / 10;
+  let fontsOk = null;
+  const fontsReady = () => fontsOk || (fontsOk = (async () => {
+    try {
+      if (!document.fonts || !document.fonts.load) return;
+      /* Google Fonts-ը տառատեսակը բաժանում է մասերի (հայերեն, լատինական)՝ բեռնում ենք երկուսն էլ */
+      await Promise.race([Promise.all(['400 16px "Noto Serif Armenian"', '700 16px "Noto Serif Armenian"'].map(f => document.fonts.load(f, 'Աա Բբ 0123 «» №'))),
+        new Promise(r => setTimeout(r, 4000))]);
+    } catch (e) { /* տառատեսակը չբեռնվեց՝ չափումը մոտավոր է */ }
+  })());
+  async function measure(els) {
+    await fontsReady();
+    const flow = h('div', { class: 'd-flow' }), sheet = h('div', { class: 'sheet doc plain letter d-measure', 'aria-hidden': 'true' }, flow);
+    els.forEach(el => flow.appendChild(el));
+    document.body.appendChild(sheet);
+    try {
+      const gaps = new Map(), right = new Map(), signs = new Map(), box = flow.getBoundingClientRect();
+      els.forEach(el => {
+        const c = el.classList;
+        if (c.contains('d-gap')) gaps.set(el, PT(el.getBoundingClientRect().height));
+        else if (c.contains('d-right')) right.set(el, PT(el.getBoundingClientRect().left - box.left));
+        else if (c.contains('d-signs')) {
+          /* ամեն վանդակի տողերի քանակը (PDF-ում տողերը հավասարեցվում են ներքևից) */
+          [...el.children].forEach(x => {
+            const cs = getComputedStyle(x), lh = parseFloat(cs.lineHeight) || 25;
+            x.dataset.ln = String(Math.max(1, Math.round((x.getBoundingClientRect().height - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.borderBottomWidth) || 0)) / lh)));
+          });
+          const k = [...el.children].slice(0, 3).map(x => x.getBoundingClientRect());
+          /* [պաշտոն + բացատ, գիծ, բացատ + անուն, բացատը] */
+          if (k.length === 3) signs.set(el, [PT(k[1].left - k[0].left), PT(k[1].width), PT(box.right - k[1].right), PT(k[2].left - k[1].right)]);
+        }
+      });
+      return { gaps, right, signs, h: PT(box.height) };
+    } finally { sheet.remove(); }
+  }
+  /* Փաստաթղթի բոլոր էջերը (փաթեթը), առանց անվանաքարտի։ Տեքստ չունեցողի համար՝ null։
+     style՝ letter (կարճ փաստաթուղթ, նոր տեսք), cover (շապիկ, 1.1–1.3) կամ contract (պայմանագիր, ինչպես առաջ) */
+  NHR.docModel = async (d) => {
     const def = NHR.docDef(d.code);
     if (!def || def.kind === 'badge' || def.kind === 'provider') return null;
     const vals = NHR.tagValues(d), parts = NHR.tplParts(d.code, vals);
     if (!parts) return null;
-    const out = parts.filter(p => p.kind !== 'badge').map(p => ({ name: p.name, blocks: NHR.tplRender(p, vals).map(blockOf).filter(Boolean) }));
+    const out = [];
+    for (const p of parts.filter(x => x.kind !== 'badge')) {
+      const els = NHR.tplRender(p, vals), letter = NHR.tplIsLetter(p);
+      let meas = null;
+      if (letter && typeof document !== 'undefined') { try { meas = await measure(els); } catch (e) { meas = null; } }
+      out.push({ name: p.name, style: letter ? 'letter' : p.kind === 'cover' ? 'cover' : 'contract', blocks: els.map(el => blockOf(el, meas)).filter(Boolean) });
+    }
     return out.length ? { parts: out } : null;
   };
   NHR.docHasText = (d) => { const def = NHR.docDef(d.code); return !!def && def.kind !== 'badge' && def.kind !== 'provider' && !!(window.NHR_TPL_TEXT || {})[d.code]; };
@@ -10107,7 +10363,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
   }
   NHR.driveCheck = (url) => NHR.api('driveCheck', { url });
   NHR.driveSave = async (d) => {
-    const model = NHR.docModel(d);
+    const model = await NHR.docModel(d);
     if (!model) throw new Error('Այս փաստաթուղթը տեքստ չունի');
     await settle();
     const r = await NHR.api('driveSave', { docId: d.id, name: NHR.docFileName(d), model });
@@ -10130,7 +10386,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
   };
   /* Word (.docx)՝ ներբեռնում (Drive-ում չի պահվում) */
   NHR.driveWord = async (d) => {
-    const model = NHR.docModel(d);
+    const model = await NHR.docModel(d);
     if (!model) throw new Error('Այս փաստաթուղթը տեքստ չունի');
     const r = await NHR.api('driveWord', { name: NHR.docFileName(d), model });
     const bin = atob(r.b64), bytes = new Uint8Array(bin.length);
@@ -10269,9 +10525,10 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
   const checked = {};
   NHR.driveField = (o, opt) => {
     const ro = opt.ro, stored = opt.stored || o, st = h('div', { class: 'drv-st' });
-    const say = (cls, ...kids) => { st.className = 'drv-st ' + (cls || ''); st.innerHTML = ''; st.append(...kids); };
+    const say = (cls, ...kids) => { st.className = 'drv-st ' + (cls || ''); st.innerHTML = ''; st.append(...kids.filter(x => x != null)); };
     const show = (r) => r.error ? say('bad', r.error) : say('ok', NHR.icon('check'), ` «${r.name}»`, h('span', { class: 'muted' }, ` · ներսում՝ ${r.folders} թղթապանակ · `),
-      h('a', { href: r.url, target: '_blank', rel: 'noopener' }, 'Բացել'));
+      h('a', { href: r.url, target: '_blank', rel: 'noopener' }, 'Բացել'),
+      r.docsApi === false ? h('div', { class: 'muted small', style: { color: 'var(--warn)' } }, 'Google Docs API-ն միացված չէ. կողմերի տվյալները PDF-ում կարող են բաժանվել էջերի միջև (Apps Script → Services → Google Docs API)') : null);
     const check = (force) => {
       const u = NHR.driveUrlOf(o);
       if (!u) { say('', 'Ամեն աշխատակցի համար այստեղ կբացվի «Անուն Ազգանուն» թղթապանակ, և նրա հաստատված փաստաթղթերը կպահվեն այնտեղ (PDF)։ Հղումը՝ Google Drive-ում թղթապանակի Share → Copy link։'); return; }
