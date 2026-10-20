@@ -915,6 +915,15 @@ input.bad { border-color: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, v
   .rh-per { grid-column: 1 / -1; }
 }
 
+/* Ադմին և կազմակերպությունների հասանելիություն (access.js) */
+.opick { display: grid; gap: 8px; }
+.opick input[type=search] { max-width: 320px; flex: 1 1 220px; }
+.ocheck { max-height: 300px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+.checklist .check .grow { flex: 1 1 140px; min-width: 0; }
+.acclist .check, .ocheck .check { flex-wrap: wrap; row-gap: 2px; padding-top: 4px; padding-bottom: 4px; }
+.checklist .check .chip { flex: none; }
+@media (max-width: 640px) { .ocheck { max-height: 50vh; } .opick .row .btn { flex: 1 1 auto; } }
+
 </style>
 </head>
 <body>
@@ -922,7 +931,7 @@ input.bad { border-color: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, v
 <noscript><p style="padding:24px">Numetrix HR-ը աշխատում է միայն JavaScript-ով։</p></noscript>
 <script>window.NHR_SITE = true;</script>
 <script src="config.js"></script>
-<script>window.NHR_BUILD = '6b4c5c22ed';</script>
+<script>window.NHR_BUILD = '2e4d505b37';</script>
 <script>
 /* Numetrix HR — ընդհանուր տեղեկատուներ, որոնք եկել են ՀԾ-ից կամ ստանդարտից։
    Համայնքներ՝ 930 տող ՀԾ-ի նկարներից (առանց ԼՂՀ-ի), երկրներ՝ ISO 3166 թվային կոդեր։ */
@@ -1964,24 +1973,26 @@ window.NHR_DEMO = function () {
 
   /* ---------- Roles ---------- */
   NHR.ROLES = { chief: 'Գլխավոր հաշվապահ', senior: 'Ավագ հաշվապահ', accountant: 'Հաշվապահ', client: 'Հաճախորդ' };
+  /* Ադմին՝ admin = true (ադմինի բանալիով մուտքը՝ միշտ). մինչև 1.5.0 ստեղծված օգտատերերից (admin դաշտ չկա)՝ Գլխավոր հաշվապահը։
+     Ադմինը կառավարում է օգտատերերին և հասանելիությունը, կարգավորումները, համարները, ձևանմուշները և տեսնում է բոլոր կազմակերպությունները։
+     Նույն կանոնները՝ սերվերում (Code.gs-ի isAdminUser_, allOrgsUser_), որտեղ էլ գործում է սահմանափակումը */
+  NHR.isAdmin = (u) => !!u && (u.login === 'admin' || (u.role !== 'client' && (u.admin === true || (u.admin == null && u.role === 'chief'))));
+  NHR.allOrgsOf = (u) => NHR.isAdmin(u) || (!!u && (u.allOrgs === true || (u.allOrgs == null && (u.role === 'chief' || u.role === 'senior'))));
   NHR.can = (what) => {
-    const r = NHR.user().role;
+    const u = NHR.user(), r = u.role, adm = NHR.isAdmin(u);
     if (what === 'edit') return r !== 'client';
     if (what === 'approve') return r !== 'client';
-    if (what === 'settings') return r === 'chief' || r === 'senior';
-    if (what === 'numbers') return r === 'chief';
-    if (what === 'templates') return r === 'chief';
-    if (what === 'users') return r === 'chief';
+    if (what === 'settings') return adm || r === 'chief' || r === 'senior';
+    if (what === 'numbers') return adm || r === 'chief';
+    if (what === 'templates') return adm || r === 'chief';
+    if (what === 'users') return adm;
     return true;
   };
-  NHR.visibleOrgs = () => {
-    const u = NHR.user();
-    let list = S.orgs;
-    /* Հաշվապահը տեսնում է իրեն կցված և Tasks-ում իր պատասխանատվությամբ կազմակերպությունները */
-    if (u.role === 'accountant') list = list.filter(o => (u.orgIds || []).includes(o.id) || (!!u.name && !!o.tasks && o.tasks.responsible === u.name));
-    else if (u.role === 'client') list = list.filter(o => (u.orgIds || []).includes(o.id));
-    return list;
-  };
+  /* Օգտատիրոջ կազմակերպությունները՝ «Բոլորը» կամ ադմինի ընտրածները + Tasks-ում իր պատասխանատվությամբ (Հաճախորդի համար՝ ոչ) */
+  NHR.userOrgs = (u, orgs) => (NHR.allOrgsOf(u) ? orgs : orgs.filter(o => (u.orgIds || []).includes(o.id) || NHR.tasksResp(u, o)));
+  NHR.tasksResp = (u, o) => !!u && u.role !== 'client' && !!u.name && !!o && !!o.tasks && String(o.tasks.responsible || '').trim() === String(u.name).trim();
+  /* Սերվերով տարբերակում էջը ստանում է միայն թույլատրված կազմակերպությունները (սահմանափակումը սերվերում է) */
+  NHR.visibleOrgs = () => (SERVER ? S.orgs : NHR.userOrgs(NHR.user(), S.orgs));
 
   /* ---------- Organizations (Բ.2, Բ.3) ---------- */
   const QUOTE = /[«»"„“”]/g;
@@ -2033,8 +2044,8 @@ window.NHR_DEMO = function () {
      o.head (o.chief)՝ ներկայիս պաշտոնյան, from՝ պաշտոնավարման սկիզբը (դատարկ՝ անհայտ, «միշտ»)։
      o.headHistory (o.chiefHistory)՝ նախկինները՝ { from, անձի դաշտեր, authority (ղեկավարի համար) }։ Ավարտը հաջորդի սկզբի նախորդ օրն է։
      Փաստաթղթում երևում է այն պաշտոնյան, որը եղել է փաստաթղթի ամսաթվին (NHR.roleAt)։ ԱՁ-ի համար պատմություն չկա։ */
-  NHR.ROLE_FIELDS = ['firstName', 'lastName', 'patronymic', 'position', 'docType', 'docNumber', 'docDate', 'docBy', 'ssn', 'address', 'phone'];
-  NHR.blankRole = (key) => ({ firstName: '', lastName: '', patronymic: '', position: key === 'chief' ? 'գլխավոր հաշվապահ' : 'տնօրեն', docType: '5', docNumber: '', docDate: '', docBy: '', ssn: '', address: '', phone: '', from: '' });
+  NHR.ROLE_FIELDS = ['firstName', 'lastName', 'patronymic', 'position', 'docType', 'docNumber', 'docDate', 'docBy', 'ssn', 'address', 'phone', 'citizen'];
+  NHR.blankRole = (key) => ({ firstName: '', lastName: '', patronymic: '', position: key === 'chief' ? 'գլխավոր հաշվապահ' : 'տնօրեն', docType: '5', docNumber: '', docDate: '', docBy: '', ssn: '', address: '', phone: '', citizen: '', from: '' });
   NHR.roleName = (x) => x ? [x.firstName, x.lastName].map(s => String(s || '').trim()).filter(Boolean).join(' ') : '';
   NHR.roleKey = (x) => NHR.roleName(x).replace(/\s+/g, ' ').toLowerCase();
   const hkey = (key) => key + 'History';
@@ -3059,6 +3070,8 @@ window.NHR_DEMO = function () {
 
   let sess = null;               // { token, exp, user: { id, name, role } }
   let snap = {}, revs = {}, seq = 0;
+  /* Իրավունքների դրոշմը (սերվերից). փոխվել է (ադմինը փոխեց կազմակերպությունները կամ դերը)՝ ամեն ինչ բեռնվում է նորից */
+  let accStamp = '', reloading = false;
   let saving = null, again = false, timer = null, fails = 0, saveState = 'ok', saveErr = '', started = false;
 
   /* ---------- սեսիա ---------- */
@@ -3156,7 +3169,7 @@ window.NHR_DEMO = function () {
     if (!info) return;
     const st = S();
     st.syncConfig = { tasksUrl: info.tasksUrl || '', secretSet: !!info.secret, trigger: !!info.trigger, lastPull: info.lastOk || '', lastError: info.lastError || '',
-      lastErrorAt: info.lastErrorAt || '', since: info.since || '', v: info.v || '', lastCheck: (st.syncConfig || {}).lastCheck || '', checkOk: (st.syncConfig || {}).checkOk, checkError: (st.syncConfig || {}).checkError || '', payTasks: (st.syncConfig || {}).payTasks };
+      lastErrorAt: info.lastErrorAt || '', since: info.since || '', v: info.v || '', orgV: info.orgV || 1, orgIn: info.orgIn || 1, lastCheck: (st.syncConfig || {}).lastCheck || '', checkOk: (st.syncConfig || {}).checkOk, checkError: (st.syncConfig || {}).checkError || '', payTasks: (st.syncConfig || {}).payTasks };
   };
 
   /* ---------- պահպանում ---------- */
@@ -3218,7 +3231,12 @@ window.NHR_DEMO = function () {
           putKnown(c, id, rev, v); changed = true;
         }
         for (const x of r.rejected || []) { const key = x.key; snap[key] = key in sent ? sent[key] : snap[key]; NHR.toast('Չպահպանվեց. ' + x.error); }
+        /* իրավունք չկա (այլ կազմակերպություն, օգտատերեր)՝ վերադարձվում է սերվերի տարբերակը (չտեսանելին՝ ջնջվում է էջից) */
+        const deny = [];
+        for (const x of r.denied || []) { if (x.rec) { putKnown(x.rec[0], x.rec[1], x.rec[2], x.rec[3]); changed = true; } if (!deny.includes(x.error)) deny.push(x.error); }
+        if (deny.length) NHR.toast('Չպահպանվեց. ' + deny.join(' · '));
         for (const [c, id, rev, v] of r.recs || []) { putKnown(c, id, rev, v); changed = true; }
+        if (r.acc) accStamp = r.acc;
         /* seq-ը (ուրիշների փոփոխությունների սահմանը) փոխվում է միայն poll-ով, որ մեր պահպանման պահին ուրիշների արածը բաց չթողնվի */
         if (lost.length) NHR.toast(`Ուրիշ օգտատեր նույն պահին փոխել էր՝ ${lost.slice(0, 3).join(', ')}. ցույց է տրված նրա տարբերակը, ձերը չպահպանվեց։`);
         if (r.sync && !/^Ուղարկվեց/.test(r.sync)) NHR.toast(r.sync);
@@ -3243,9 +3261,11 @@ window.NHR_DEMO = function () {
 
   /* ---------- ուրիշների փոփոխությունները ---------- */
   async function poll(force) {
-    if (!started || !sess || saving || (!force && document.hidden)) return;
+    if (!started || !sess || saving || reloading || (!force && document.hidden)) return;
     try {
-      const r = await NHR.api('changes', { since: seq, sync: true });
+      const r = await NHR.api('changes', { since: seq, sync: true, acc: accStamp });
+      if (r.reload) { await reloadAll(); return; }
+      if (r.acc) accStamp = r.acc;
       let changed = false;
       for (const [c, id, rev, v] of r.recs || []) {
         const key = K(c, id);
@@ -3269,7 +3289,7 @@ window.NHR_DEMO = function () {
     await poll(true);
     return r;
   };
-  NHR.serverPing = () => NHR.api('syncPing', {}).then(r => { const st = S(); st.syncConfig = Object.assign({}, st.syncConfig, { lastCheck: r.checkedAt, checkOk: true, checkError: '', payTasks: !!r.payTasks }); return r; },
+  NHR.serverPing = () => NHR.api('syncPing', {}).then(r => { const st = S(); st.syncConfig = Object.assign({}, st.syncConfig, { lastCheck: r.checkedAt, checkOk: true, checkError: '', payTasks: !!r.payTasks, orgV: r.orgV || 1, orgIn: r.orgIn || 1 }); return r; },
     e => { const st = S(); st.syncConfig = Object.assign({}, st.syncConfig, { lastCheck: new Date().toISOString(), checkOk: false, checkError: e && e.message ? e.message : String(e) }); throw e; });
   NHR.serverSetTasksUrl = (url) => NHR.api('syncSetUrl', { url }).then(info => { syncCfg(info); return info; });
   NHR.serverSyncInfo = () => NHR.api('syncInfo', {}).then(info => { syncCfg(info); return info; });
@@ -3319,7 +3339,10 @@ window.NHR_DEMO = function () {
     showGate('loading', 'Մուտք…');
     try {
       const r = await NHR.api('login', p);
+      const prevUser = started ? S().currentUserId : '';
       writeSess(r);
+      /* նույն ներդիրում մուտք է գործել այլ օգտատեր՝ նախորդի տվյալները չեն մնում էջում */
+      if (started && prevUser && prevUser !== r.user.id) { location.reload(); return; }
       if (started) {
         const st = S();
         if (!st.users.find(u => u.id === r.user.id)) st.users.push({ id: r.user.id, name: r.user.name, email: '', role: r.user.role, orgIds: [] });
@@ -3331,12 +3354,10 @@ window.NHR_DEMO = function () {
       showGate(e.net ? 'error' : 'login', e.message);
     }
   }
-  async function load() {
-    showGate('loading', 'Բեռնվում է…');
-    let r;
-    try { r = await NHR.api('load', {}); } catch (e) { if (!e.auth) showGate('error', e.message); return; }
+  /** Սերվերից բեռնվածը՝ վիճակում (նոր վիճակ, snap, revs, seq) */
+  function applyLoad(r) {
     const st = NHR.emptyState(), by = {};
-    snap = {}; revs = {}; seq = r.seq || 0;
+    snap = {}; revs = {}; seq = r.seq || 0; accStamp = r.acc || '';
     for (const [c, id, rev, v] of r.recs || []) (by[c] = by[c] || []).push([String(id), rev, v]);
     for (const c of Object.keys(by)) {
       const list = by[c];
@@ -3355,11 +3376,29 @@ window.NHR_DEMO = function () {
     }
     NHR.setState(st);
     st.currentUserId = r.me.id;
-    if (!st.users.find(u => u.id === r.me.id)) st.users.push({ id: r.me.id, name: r.me.name, email: '', role: r.me.role, orgIds: [] });
+    if (!st.users.find(u => u.id === r.me.id)) st.users.push({ id: r.me.id, name: r.me.name, email: '', role: r.me.role, admin: !!r.me.admin, allOrgs: !!r.me.allOrgs, orgIds: [] });
     let org = ''; try { org = localStorage.getItem(ORGKEY()) || ''; } catch (e) { org = ''; }
     st.currentOrgId = org;
     syncCfg(r.sync);
     normalize();
+  }
+  /* Ադմինը փոխել է այս օգտատիրոջ իրավունքները՝ նախ պահվում է չպահպանվածը, հետո ամեն ինչ բեռնվում է նորից (առանց էջի վերաբեռնման) */
+  async function reloadAll() {
+    if (reloading) return;
+    reloading = true;
+    try {
+      await NHR.flushSave();
+      const r = await NHR.api('load', {});
+      applyLoad(r);
+      NHR.render();
+      NHR.toast('Ձեր իրավունքները փոխվել են (ադմինի կողմից)․ տվյալները թարմացվեցին');
+    } catch (e) { /* կփորձվի հաջորդ անգամ */ } finally { reloading = false; }
+  }
+  async function load() {
+    showGate('loading', 'Բեռնվում է…');
+    let r;
+    try { r = await NHR.api('load', {}); } catch (e) { if (!e.auth) showGate('error', e.message); return; }
+    applyLoad(r);
     hideGate();
     started = true;
     startApp();
@@ -6484,7 +6523,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       NHR.serverMode ? h('div', { class: 'side-foot' },
         h('div', { class: 'ucard fixed' },
           h('span', { class: 'uav', 'aria-hidden': 'true' }, ini(u.name || '?')),
-          h('div', { class: 'uinfo' }, h('b', null, u.name), h('span', null, NHR.ROLES[u.role]))),
+          h('div', { class: 'uinfo' }, h('b', null, u.name), h('span', null, NHR.ROLES[u.role] + (NHR.isAdmin(u) ? ' · ադմին' : '')))),
         h('button', { class: 'reset', type: 'button', onclick: () => NHR.logout() }, 'Ելք'))
       : h('div', { class: 'side-foot' },
         h('div', { class: 'ucard', title: 'Փոխել օգտատիրոջը' },
@@ -6534,9 +6573,12 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
     }
     /* Սերվերով տարբերակում կազմակերպություն դեռ չկա (առաջին համաժամեցումից առաջ) */
     if (!NHR.curOrg() && !['orgs', 'org', 'settings', 'refs'].includes(route.page)) {
+      /* սահմանափակ օգտատեր, որին դեռ կազմակերպություն տրված չէ (սերվերը չի ուղարկում ուրիշների տվյալները) */
+      const limited = NHR.serverMode && !NHR.allOrgsOf(NHR.user());
       mainEl.appendChild(h('div', { class: 'empty-start' },
-        h('h1', null, 'Կազմակերպություն դեռ չկա'),
-        h('p', null, NHR.serverMode ? 'Կազմակերպությունները գալիս են Numetrix Tasks-ից («Սպասարկում ենք» նշվածները)։ Բացեք «Կազմակերպություններ» և սեղմեք «Համաժամեցնել հիմա», կամ ավելացրեք նորը։' : 'Ավելացրեք կազմակերպություն։'),
+        h('h1', null, limited ? 'Ձեզ դեռ կազմակերպություն տրված չէ' : 'Կազմակերպություն դեռ չկա'),
+        h('p', null, limited ? 'Դիմեք ադմինին. «Կարգավորումներ → Օգտատերեր և դերեր»-ում նա կնշի ձեր կազմակերպությունները (կամ Numetrix Tasks-ում ձեզ կնշանակեն կազմակերպության պատասխանատու)։ Կարող եք նաև ավելացնել նոր կազմակերպություն՝ այն կլինի ձեզ հասանելի։'
+          : NHR.serverMode ? 'Կազմակերպությունները գալիս են Numetrix Tasks-ից («Սպասարկում ենք» նշվածները)։ Բացեք «Կազմակերպություններ» և սեղմեք «Համաժամեցնել հիմա», կամ ավելացրեք նորը։' : 'Ավելացրեք կազմակերպություն։'),
         h('div', { class: 'row' }, NHR.btn('Կազմակերպություններ', () => NHR.go({ page: 'orgs' }), 'primary'),
           NHR.can('edit') ? NHR.btn('Նոր կազմակերպություն', () => NHR.open({ page: 'org', id: 'new' }), '', 'plus') : null)));
       document.title = 'Numetrix HR';
@@ -6789,19 +6831,23 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       o[key].from = x.from; delete o[key].fromSrc;
       /* նախորդի անձնական տվյալները (փաստաթուղթ, ՀԾՀ, հասցե, հեռախոս) նորի վրա չեն մնում */
       let cleared = false;
-      ['docNumber', 'docDate', 'docBy', 'ssn', 'address', 'phone'].forEach(f => { if (was[f] && o[key][f] === was[f]) { o[key][f] = ''; cleared = true; } });
+      ['docNumber', 'docDate', 'docBy', 'ssn', 'address', 'phone', 'citizen'].forEach(f => { if (was[f] && o[key][f] === was[f]) { o[key][f] = ''; cleared = true; } });
       if (key === 'head' && before.authority && JSON.stringify(o.authority) === JSON.stringify(before.authority) && before.authority.basis === 'poa') { o.authority = { basis: 'charter', poaNumber: '', poaDate: '' }; cleared = true; }
       setTimeout(() => { go(); if (cleared) NHR.toast(`Լրացրեք նոր ${T.of} փաստաթղթի և կոնտակտային տվյալները`); }, 0);
     } }] });
   }
 
+  /* Լիազորագիրը Tasks-ին (և Պայմանագրերին) գնում է միայն համարով և ամսաթվով միասին */
+  const poaHint = (o) => ({ hint: 'Tasks-ին լիազորագիրը գնում է միայն համարով և ամսաթվով միասին', warn: !String(o.authority.poaNumber || '').trim() || !o.authority.poaDate });
+  /* Հայրանունը փաստաթղթերում՝ սեռական հոլովով («Արամի»). Tasks-ից կարող է գալ ուղղականով («Արամ») */
+  const patrHint = (v) => { const t = String(v || '').trim(); return t && !/ի$/.test(t) ? { hint: `Ստուգեք հոլովը․ փաստաթղթերում պետք է սեռական հոլով (օր.՝ ${t}ի)`, warn: true } : { hint: 'Սեռական հոլովով (օր.՝ Արամի)' }; };
   function personBlock(o, key, ro, isIE) {
     const p = o[key];
     const docTypes = [['1', 'ՀՀ անձնագիր'], ['5', 'Նույնականացման քարտ'], ['6', 'Կենսաչափական անձնագիր']];
     return h('div', { class: 'form' },
       field('Անուն', inp(p, 'firstName', { ro }), { req: isIE, error: key === 'head' ? errs.headFirst : '' }),
       field('Ազգանուն', inp(p, 'lastName', { ro }), { req: isIE, error: key === 'head' ? errs.headLast : '' }),
-      field('Հայրանուն', inp(p, 'patronymic', { ro })),
+      field('Հայրանուն', inp(p, 'patronymic', { ro }), patrHint(p.patronymic)),
       isIE ? null : field('Պաշտոն', inp(p, 'position', { ro })),
       field('Փաստաթղթի տեսակ', sel(p, 'docType', docTypes, { ro })),
       field('Փաստաթղթի համար', inp(p, 'docNumber', { ro, code: true })),
@@ -6809,6 +6855,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       field('Ում կողմից', inp(p, 'docBy', { ro, code: true })),
       field('ՀԾՀ', inp(p, 'ssn', { ro, code: true })),
       field('Հեռախոս', inp(p, 'phone', { ro, type: 'tel' })),
+      key === 'head' ? field('Քաղաքացիություն', inp(p, 'citizen', { ro }), { hint: 'Օր.՝ ՀՀ, ՌԴ (դատարկ՝ նշված չէ)' }) : null,
       field('Հաշվառման հասցե', inp(p, 'address', { ro }), { cls: 'w2' })
     );
   }
@@ -6895,6 +6942,12 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
         o.head = Object.assign({}, o.head, x.head);
         o.activityAddresses = x.activityAddresses;
         o.tasks = Object.assign({}, o.tasks, x.tasks);
+        /* v2-ով՝ նաև գլխավոր հաշվապահը, մասնակիցները, լիազորությունը, մայր կազմակերպությունը, ՁԿԴ-ն */
+        if (x.chief && (x.chief.firstName || x.chief.lastName)) o.chief = Object.assign({}, o.chief, x.chief);
+        if ((x.participants || []).length) o.participants = x.participants;
+        if (x.authority && x.authority.basis === 'poa') o.authority = Object.assign({}, o.authority, x.authority);
+        if (x.parent && (x.parent.name || x.parent.tin)) o.parent = Object.assign({}, o.parent, x.parent);
+        if (x.hr && x.hr.fkd) o.hr = Object.assign({}, o.hr, { fkd: x.hr.fkd });
         errs = {}; redraw();
         NHR.toast('Տվյալները բերվեցին Tasks-ից․ ստուգեք և պահպանեք');
       }, e => NHR.toast('Tasks-ից բերել չհաջողվեց․ ' + e.message));
@@ -6910,7 +6963,8 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
     const partRows = o.participants.map((p, i) => h('div', { class: 'form', style: { alignItems: 'end' } },
       field('Տեսակ', sel(p, 'kind', [['person', 'Ֆիզիկական անձ'], ['org', 'Կազմակերպություն']], { ro, empty: false, onChange: redraw })),
       field(p.kind === 'org' ? 'Անվանում' : 'Անուն Ազգանուն', inp(p, 'name', { ro })),
-      p.kind === 'org' ? field('ՀՎՀՀ', inp(p, 'tin', { ro, code: true })) : null,
+      p.kind === 'org' ? field('ՀՎՀՀ', inp(p, 'tin', { ro, code: true })) : field('ՀԾՀ', inp(p, 'ssn', { ro, code: true, inputmode: 'numeric' }),
+        p.ssn && !/^\d{10}$/.test(String(p.ssn).trim()) ? { warn: true, hint: 'ՀԾՀ-ն 10 թվանշան է' } : { hint: 'Պայմանագրերի (բաժնեմասի օտարում) համար' }),
       field('Բաժնեմաս, %', inp(p, 'share', { ro, type: 'number', min: 0, max: 100 })),
       ro ? null : h('div', null, btn('Հեռացնել', () => { o.participants.splice(i, 1); redraw(); }, 'ghost danger sm'))
     ));
@@ -6942,7 +6996,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
           panel('Ռեկվիզիտներ', h('div', { class: 'form' },
             h('div', { class: 'field' }, h('label', null, ' '), chk(o, 'vat', 'ԱԱՀ վճարող', { ro })),
             field('Պետռեգիստրի գրանցման համար', inp(o, 'stateReg', { ro, code: true })),
-            field('Իրավաբանական անձի կոդ (ՁԿԴ)', inp(o.hr, 'fkd', { ro, code: true }), { hint: 'Միայն HR-ում․ 8.5–8.8 ձևերի համար' }),
+            field('Իրավաբանական անձի կոդ (ՁԿԴ)', inp(o.hr, 'fkd', { ro, code: true }), { hint: '8.5–8.8 ձևերի համար' }),
             field('Իրավաբանական հասցե', inp(o, 'legalAddress', { ro }), { cls: 'wall' }),
             field('Հաշվեհամար', inp(o, 'bankAccount', { ro, code: true, onInput: () => redrawBank() }), { hint: h('span', { id: 'bank-hint' }, bank ? bank.name : '') }),
             field('Հեռախոս', inp(o, 'phones', { ro, type: 'tel', ph: '+374XXXXXXXX, …' }), { warn: !!errs.phonesWarn, error: errs.phonesWarn }),
@@ -6956,12 +7010,12 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
             isIE ? null : h('div', { class: 'form' },
               field('Լիազորության հիմք', sel(o.authority, 'basis', [['charter', 'Գործում է կանոնադրության հիման վրա'], ['poa', 'Գործում է լիազորագրի հիման վրա']], { ro, empty: false, onChange: redraw }), { cls: 'w2' }),
               o.authority.basis === 'poa' ? field('Լիազորագրի համար', inp(o.authority, 'poaNumber', { ro, code: true })) : null,
-              o.authority.basis === 'poa' ? field('Լիազորագրի ամսաթիվ', inp(o.authority, 'poaDate', { ro, type: 'date' })) : null),
+              o.authority.basis === 'poa' ? field('Լիազորագրի ամսաթիվ', inp(o.authority, 'poaDate', { ro, type: 'date' }), poaHint(o)) : null),
             isIE ? null : roleBlock(o, 'head', ro, redraw))),
           isIE ? null : panel('Գլխավոր հաշվապահ', h('div', { style: { display: 'grid', gap: '14px' } }, personBlock(o, 'chief', ro, false), roleBlock(o, 'chief', ro, redraw)),
-            { actions: h('span', { class: 'muted small' }, 'Միայն HR-ում') }),
+            { actions: h('span', { class: 'muted small' }, 'Tasks-ին՝ v2-ով') }),
           isIE ? null : panel('Մասնակիցներ (հիմնադիրներ)', h('div', { style: { display: 'grid', gap: '12px' } }, partRows.length ? partRows : h('div', { class: 'muted' }, 'Մասնակից չկա․ անհրաժեշտ է 1.2 տնօրենի պայմանագրի համար'), o.type === 'Մասնաճյուղ' ? null : dirBlock),
-            { actions: ro ? null : btn('Ավելացնել', () => { o.participants.push({ kind: 'person', name: '', tin: '', share: '' }); redraw(); }, 'sm', 'plus') }),
+            { actions: ro ? null : btn('Ավելացնել', () => { o.participants.push({ kind: 'person', name: '', tin: '', ssn: '', share: '' }); redraw(); }, 'sm', 'plus') }),
           panel('HR կարգավորումներ', h('div', { class: 'form' },
             field('Ներդրման ամսաթիվ', inp(o.hr, 'implDate', { ro, type: 'date' }), { hint: 'Արձակուրդի մնացորդների ելակետ (Զ.3)' }),
             field('Աշխատանքային շաբաթ', sel(o.hr, 'workWeek', NHR.refOpts('workWeek', false), { ro, empty: false })),
@@ -6974,6 +7028,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
             NHR.driveField(o, { ro, isNew, stored: cur })
           )),
           panel('Tasks-ից (միայն կարդալու)', kv([['Պատասխանատու', cur.tasks.responsible], ['Պատասխանատուի պաշտոն', cur.tasks.responsiblePos], ['Սպասարկման ռեժիմ', cur.tasks.regime], ['Սպասարկման սկիզբ', NHR.fmtDate(cur.tasks.startDate)]])),
+          isNew || !NHR.orgAccessPanel ? null : NHR.orgAccessPanel(cur),
           isNew ? null : panel('Համաժամեցում', kv([['Վիճակ', NHR.syncChip(cur)], ['Վերջին փոփոխություն', NHR.fmtDT(cur.sync.updatedAt)], ['Ով է փոխել', cur.sync.updatedBy], ['Աղբյուր', cur.sync.src === 'hr' ? 'Numetrix HR' : cur.sync.src === 'contracts' ? 'Պայմանագրեր և ակտեր' : 'Numetrix Tasks'], ['«Սպասարկում ենք» փոխվել է', NHR.fmtDT(cur.sync.servedAt)]]))
         )
       )
@@ -10078,9 +10133,14 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
   let setTab = 'numbering', tplSel = '1.1';
   /* Գործուղման ներդիր՝ օտարերկրյա նորմի որոնումը (երկիր, քաղաք, ամսաթիվ) */
   const tripLook = { country: '268', city: '', date: '' };
+  /* Կարգավորումների որոշակի ներդիր (օր.՝ կազմակերպության քարտից «Օգտատերեր») */
+  NHR.openSettings = (tab) => { setTab = tab || setTab; NHR.open({ page: 'settings' }); };
   NHR.views.settings = function () {
     const S = NHR.state(), o = NHR.curOrg();
-    const tabs = [['numbering', 'Համարակալում'], ['templates', 'Ձևանմուշներ'], ['tags', 'Թեգերի բառարան'], ['holidays', 'Տոնական օրեր'], ['payroll', 'Պահումներ'], ['trip', 'Գործուղում'], ['sync', 'Համաժամեցում Tasks-ի հետ'], ['users', 'Օգտատերեր և դերեր']];
+    /* «Օգտատերեր և դերեր»՝ միայն ադմինի համար (մյուսները օգտատերերից տեսնում են միայն անունը և դերը) */
+    const tabs = [['numbering', 'Համարակալում'], ['templates', 'Ձևանմուշներ'], ['tags', 'Թեգերի բառարան'], ['holidays', 'Տոնական օրեր'], ['payroll', 'Պահումներ'], ['trip', 'Գործուղում'], ['sync', 'Համաժամեցում Tasks-ի հետ'], ['users', 'Օգտատերեր և դերեր']]
+      .filter(t => t[0] !== 'users' || NHR.can('users'));
+    if (!tabs.some(t => t[0] === setTab)) setTab = tabs[0][0];
     let body;
     if (setTab === 'numbering') {
       body = [panel('Կանոններ', table([
@@ -10095,7 +10155,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
           h('div', { class: 'form' }, field('Հրամանների առաջին համարը ներդրման տարում', inp(o.hr, 'orderStart', { type: 'number', min: 1, ro: !NHR.can('numbers'), onChange: () => { NHR.save(); NHR.rerender(); } })),
             field('Համաձայնագրերի առաջին համարը', inp(o.hr, 'agreementStart', { type: 'number', min: 1, ro: !NHR.can('numbers'), onChange: () => { NHR.save(); NHR.rerender(); } })),
             field('Ելից գրությունների առաջին համարը', inp(o.hr, 'outStart', { type: 'number', min: 1, ro: !NHR.can('numbers'), onChange: () => { NHR.save(); NHR.rerender(); } }), { hint: 'Ծանուցումներ և բացատրության պահանջներ' })),
-          h('div', { class: 'muted small' }, 'Համարները ձեռքով փոխում է միայն գլխավոր հաշվապահը։')))];
+          h('div', { class: 'muted small' }, 'Համարները ձեռքով փոխում են միայն գլխավոր հաշվապահը և ադմինը։')))];
     } else if (setTab === 'templates') {
       const versions = NHR.tplVersions(tplSel);
       const addV = () => {
@@ -10262,13 +10322,14 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       const off = (b) => { if (!srv) { b.disabled = true; b.title = 'Աշխատում է սերվերին միացված տարբերակում'; } return b; };
       body = [srv ? null : h('div', { class: 'note warn' }, NHR.icon('warn'), h('div', null, 'Նախատիպում Tasks-ի հետ կապ չկա․ այն աշխատում է սերվերին (HR-ի Apps Script) միացված տարբերակում (GitHub-ի էջ)։')),
         h('div', { class: 'cols' },
-          panel('Կապ Numetrix Tasks-ի հետ (sync v1)', h('div', { style: { display: 'grid', gap: '14px' } },
+          panel(`Կապ Numetrix Tasks-ի հետ (sync v${C.orgV === 2 ? 2 : 1})`, h('div', { style: { display: 'grid', gap: '14px' } },
             h('div', { class: 'form' }, field('Tasks-ի հասցե (Web app /exec)', inp(ts, 'tasksUrl', { ro: !srv || !can, ph: 'https://script.google.com/macros/s/…/exec' }), { cls: 'wall', hint: 'Numetrix Tasks-ի Apps Script-ի Web app-ի հասցեն' })),
             kv([['Tasks-ի բանալի (HR_SYNC_SECRET)', !srv ? '—' : C.secretSet ? 'Ստեղծված է' : 'Ստեղծված չէ․ աղյուսակում՝ «Numetrix HR → 2. Ստեղծել Tasks-ի բանալին»'],
               ['Ավտոմատ համաժամեցում', !srv ? '—' : C.trigger ? '15 րոպեն մեկ' : 'Միացված չէ․ աղյուսակում՝ «Numetrix HR → 3. Միացնել ավտոմատ համաժամեցումը»'],
               ['Վերջին հաջող համաժամեցում', C.lastPull ? NHR.fmtDT(C.lastPull) : '—'],
               ['«Սպասող»', String(nPend)], ['Խնդիր ունեցող', String(nErr)],
               ['Վերջին սխալ', C.lastError ? `${C.lastError} (${NHR.fmtDT(C.lastErrorAt)})` : '—'],
+              ['Կազմակերպությունների ձևաչափ', !srv ? '—' : `Tasks-ին ուղարկում ենք v${C.orgV === 2 ? 2 : 1}, Tasks-ից ստանում ենք v${C.orgIn === 2 ? 2 : 1}` + (C.orgV === 2 ? '' : ' (v2-ը կմիանա ինքնաբերաբար, երբ Tasks-ը պատրաստ լինի)')],
               ['Վերջին ստուգում', C.lastCheck ? `${NHR.fmtDT(C.lastCheck)} · ${C.checkOk ? 'կապ կա' + (C.payTasks ? ', վճարման թասքերը՝ միացված' : C.payTasks === false ? ', վճարման թասքեր Tasks-ը դեռ չի ընդունում' : '') : 'կապ չկա' + (C.checkError ? '՝ ' + C.checkError : '')}` : '—']]),
             h('div', { class: 'row' },
               srv && can ? btn('Պահպանել հասցեն', saveUrl, '', 'check') : null,
@@ -10278,39 +10339,170 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
             { th: 'Կազմակերպություն', get: x => NHR.orgName(x) }, { th: 'Վիճակ', get: x => NHR.syncChip(x) }, { th: 'Մանրամասներ', get: x => x.sync.error || NHR.fmtDT(x.sync.updatedAt) }
           ], pend, { empty: 'Բոլորը համաժամեցված են', onRow: x => NHR.open({ page: 'org', id: x.id }) }), { flush: true, actions: pend.length && srv && NHR.can('edit') ? btn('Կրկնել հիմա', retry, 'sm', 'sync') : null })),
         panel('Կանոններ', h('ul', { class: 'list-plain' }, ['Կազմակերպության քարտը պահելիս և տնօրենի պայմանագրի (1.2) հաստատելիս գրառումն անմիջապես ուղարկվում է Tasks։ Չհաջողվելու դեպքում նշվում է «սպասող» և ուղարկվում ավտոմատ՝ 15 րոպեն մեկ։',
-          'Ստացված գրառումում դատարկ արժեքը լրացվածին չի փոխարինում, տարբերության դեպքում հաղթում է ավելի նոր փոփոխությունը, «Սպասարկում ենք»-ը կիրառվում է միայն ավելի նոր ժամով։',
-          'Պատասխանատուն, պաշտոնը, ռեժիմը և սկիզբը գալիս են միայն Tasks-ից։ Գլխավոր հաշվապահը, մասնակիցները, լիազորության հիմքը և մայր կազմակերպությունը մնում են միայն HR-ում։',
-          'Tasks-ը նոր կազմակերպություն ստեղծում է միայն «Սպասարկում ենք» նշվածների համար։ HR-ի ցուցակում երևում են միայն սպասարկվողները։',
+          'HR-ը Tasks-ին ուղարկում է միայն իր փոխած դաշտերը, ուստի Tasks-ում այդ ընթացքում արված փոփոխությունը հնով չի փոխարինվում։ Ստացված գրառումում դատարկ արժեքը լրացվածին չի փոխարինում, HR-ի դեռ չուղարկված փոփոխությունը չի կորչում, իսկ նույն դաշտը երկու կողմում փոխվելու դեպքում հաղթում է ավելի ուշը։ «Սպասարկում ենք»-ը կիրառվում է միայն ավելի նոր ժամով։',
+          'Ղեկավարի պաշտոնը և էլ. փոստը համեմատվում են առանց մեծատառ/փոքրատառ տարբերության։ Բանկը որոշվում է հաշվեհամարով. նույն հաշվեհամարի դեպքում HR-ի անվանումը մնում է և ուղարկվում է Tasks։',
+          'Գործունեության հասցեները միավորվում են ըստ հասցեի տեքստի (առանց մեծատառ/փոքրատառ տարբերության, «և» = «եվ»)։ Նորերն ավելանում են. հեռացումը չի փոխանցվում (ավելորդ հասցեն հեռացրեք բոլոր ծրագրերում), HR-ում հեռացվածը ետ չի ավելանում։ Մասնակիցների ցուցակը փոխարինվում է ամբողջությամբ. դատարկ ՀԾՀ-ն, ՀՎՀՀ-ն կամ բաժնեմասը լրացվածը չեն ջնջում։',
+          'Ղեկավարը (գլխավոր հաշվապահը) փոխված է, եթե անունը կամ ազգանունը տարբեր է (պակասող մասի լրացումը փոփոխություն չէ)։ Նոր անձի դեպքում նախկինը մնում է պատմության մեջ, անձնական տվյալները վերցվում են միայն նոր գրառումից, իսկ նախորդի անձնագիրը, ՀԾՀ-ն, հասցեն կամ հեռախոսը նորի վրա չեն գրվում։ Անվան ուղղումը (քարտում՝ «Ուղղում է», Tasks-ից՝ dirSame/chiefSame) նոր անձ չէ։',
+          'Պատասխանատուն, պաշտոնը, ռեժիմը և սկիզբը գալիս են միայն Tasks-ից։ v2-ով Tasks-ին են գնում նաև գլխավոր հաշվապահը (ներառյալ փաստաթուղթը), մասնակիցները, լիազորության հիմքը, ղեկավարի քաղաքացիությունը, մայր կազմակերպությունը, ՁԿԴ-ն և հասցեների մարզ/համայնքը։ Լիազորագիրը գնում է միայն համարով և ամսաթվով միասին։ Երբ Tasks-ը սկսում է HR-ին ուղարկել v2, HR-ը մեկ անգամ բերում է բոլոր կազմակերպությունների v2 տվյալները։ Ղեկավարների պատմությունը և 1.2-ի նշանակման տվյալները մնում են միայն HR-ում։',
+          'Tasks-ը նոր կազմակերպություն ստեղծում է միայն «Սպասարկում ենք» նշվածների համար։ Մայր կազմակերպության ՀՎՀՀ-ով մասնաճյուղը մնում է միայն HR-ում։',
           'Գաղտնի բանալին և ստորագրությունը միայն HR-ի Apps Script-ում են. GitHub-ի էջը դիմում է միայն իր սերվերին։'].map(t => h('li', null, t))))];
     } else {
-      const ROLE_RIGHTS = [['Կազմակերպություններ, աշխատակիցներ, փաստաթղթեր', '✓', '✓', '✓ (իր կազմակերպությունները)', 'Միայն դիտում (իր կազմակերպությունը)'], ['Փաստաթղթերի հաստատում', '✓', '✓', '✓', '—'], ['Համարների ձեռքով փոփոխություն', '✓', '—', '—', '—'], ['Ձևանմուշների ակտիվացում', '✓', '—', '—', '—'], ['Կարգավորումներ', '✓', '✓', '—', '—'], ['Օգտատերեր', '✓', '—', '—', '—']];
-      const orgOpts = () => S.orgs.filter(z => z.served).map(z => [z.id, NHR.orgName(z)]);
+      /* Օգտատերեր և դերեր (միայն ադմին)։ Ադմինը նշանակում է դերը, ադմիններին և ամեն օգտատիրոջ կազմակերպությունները (access.js) */
+      const ROLE_RIGHTS = [
+        ['Կազմակերպություններ, աշխատակիցներ, փաստաթղթեր', '✓', '✓', '✓', 'Միայն դիտում', '✓'],
+        ['Փաստաթղթերի հաստատում', '✓', '✓', '✓', '—', 'ըստ դերի'],
+        ['Համարների ձեռքով փոփոխություն', '✓', '—', '—', '—', '✓'],
+        ['Ձևանմուշների ակտիվացում', '✓', '—', '—', '—', '✓'],
+        ['Կարգավորումներ', '✓', '✓', '—', '—', '✓'],
+        ['Օգտատերեր և հասանելիություն', '—', '—', '—', '—', '✓'],
+        ['Տեսանելի կազմակերպություններ', 'Ըստ ադմինի ընտրության՝ բոլորը կամ ընտրվածները', '', 'Ընտրվածները + Tasks-ում իր պատասխանատվությամբ', 'Ընտրվածները', 'Բոլորը']];
+      const me = NHR.user(), srv = NHR.serverMode;
       const addUser = () => {
-        const x = { name: '', email: '', role: 'accountant', orgIds: [] };
+        const x = { name: '', email: '', role: 'accountant' };
         NHR.modal({ title: 'Նոր օգտատեր', body: h('div', { class: 'form' }, field('Անուն Ազգանուն', inp(x, 'name'), { req: true }), field('Էլ. փոստ', inp(x, 'email'), { req: true }),
-          field('Դեր', sel(x, 'role', Object.entries(NHR.ROLES), { empty: false })), field('Կազմակերպություններ', multi(x, 'orgIds', orgOpts()), { cls: 'wall', hint: 'Հաշվապահի և հաճախորդի համար' })),
-          actions: [{ label: 'Չեղարկել' }, { label: 'Ավելացնել', cls: 'primary', onClick: () => { if (!x.name || !x.email) return false; x.email = NHR.normEmails(x.email).value; S.users.push(Object.assign({ id: NHR.uid('u') }, x)); NHR.save(); NHR.rerender(); } }] });
+          field('Դեր', sel(x, 'role', Object.entries(NHR.ROLES), { empty: false }))),
+          actions: [{ label: 'Չեղարկել' }, { label: 'Ավելացնել', cls: 'primary', onClick: () => { if (!x.name || !x.email) return false; x.email = NHR.normEmails(x.email).value;
+            const u = Object.assign({ id: NHR.uid('u'), admin: false, allOrgs: false, orgIds: [], blocked: false }, x); S.users.push(u); NHR.save(); setTimeout(() => NHR.userEdit(u), 0); } }] });
       };
-      /* Սերվերով տարբերակում օգտատերը ավելանում է Tasks-ից առաջին մուտքով. Գլխավոր հաշվապահը փոխում է դերը և կազմակերպությունները */
-      const editUser = (u) => {
-        if (!NHR.can('users')) return;
-        const x = { role: u.role, orgIds: (u.orgIds || []).slice() };
-        NHR.modal({ title: u.name, body: h('div', { class: 'form' }, field('Դեր', sel(x, 'role', Object.entries(NHR.ROLES), { empty: false })),
-          field('Կազմակերպություններ', multi(x, 'orgIds', orgOpts()), { cls: 'wall', hint: 'Հաշվապահի և հաճախորդի համար․ Tasks-ում իր պատասխանատվությամբ կազմակերպությունները հաշվապահը տեսնում է առանց կցելու' })),
-          actions: [{ label: 'Չեղարկել' }, { label: 'Պահպանել', cls: 'primary', onClick: () => { u.role = x.role; u.orgIds = x.orgIds; NHR.save(); NHR.rerender(); } }] });
-      };
-      const srv = NHR.serverMode;
-      body = [panel('Օգտատերեր', table([
-        { th: 'Անուն Ազգանուն', get: u => u.name }, srv ? { th: 'Մուտքանուն (Tasks)', cls: 'code', get: u => u.login || '' } : { th: 'Էլ. փոստ', get: u => u.email },
-        { th: 'Դեր', get: u => chip(NHR.ROLES[u.role], (u.role === 'client' ? '' : 'acc') + ' lbl') },
-        { th: 'Կազմակերպություններ', get: u => u.role === 'chief' || u.role === 'senior' ? 'Բոլորը' : [(u.orgIds || []).map(id => NHR.orgName(NHR.org(id))).filter(Boolean).join(', '), u.role === 'accountant' ? 'իր պատասխանատվությամբ (Tasks)' : ''].filter(Boolean).join(' + ') }
-      ], S.users, srv && NHR.can('users') ? { onRow: editUser } : {}), { flush: true, actions: !srv && NHR.can('users') ? btn('Նոր օգտատեր', addUser, 'sm', 'plus') : null }),
-        panel('Դերերի իրավունքներ', h('div', { class: 'tw' }, h('table', { class: 't' }, h('thead', null, h('tr', null, h('th', null, ''), Object.values(NHR.ROLES).map(r => h('th', null, r)))),
-          h('tbody', null, ROLE_RIGHTS.map(r => h('tr', null, r.map((c, i) => h('td', { class: i ? 'small' : '' }, c)))))))),
-        h('div', { class: 'muted small' }, srv ? 'Օգտատերը ավելանում է ինքնաբերաբար՝ Numetrix Tasks-ից առաջին մուտքի ժամանակ (Ղեկավար՝ Գլխավոր հաշվապահ, Աշխատակից՝ Հաշվապահ)։ Դերը փոխելու համար սեղմեք տողի վրա։'
+      const users = S.users.slice().sort((a, b) => (NHR.isAdmin(b) - NHR.isAdmin(a)) || String(a.name || '').localeCompare(String(b.name || ''), 'hy'));
+      const nAdm = users.filter(u => NHR.isAdmin(u) && !u.blocked).length;
+      body = [h('div', { class: 'note' }, NHR.icon('people'), h('div', null,
+          h('b', null, 'Ինչպես նշանակել ադմին և բաժանել կազմակերպությունները. '),
+          'սեղմեք օգտատիրոջ տողի վրա → նշեք «Ծրագրի ադմին» կամ ընտրեք նրա կազմակերպությունները («Բոլորը» կամ «Միայն ընտրվածները»)։ ',
+          srv ? 'Սահմանափակումը գործում է սերվերում՝ օգտատերը չի ստանում իրեն չտրված կազմակերպությունների տվյալները։' : '')),
+        panel(`Օգտատերեր (${users.length}, ադմին՝ ${nAdm})`, table([
+          { th: 'Անուն Ազգանուն', get: u => h('div', null, h('b', null, u.name || '—'), u.id === me.id ? h('span', { class: 'sub' }, 'դուք') : null) },
+          srv ? { th: 'Մուտքանուն (Tasks)', cls: 'code', get: u => u.login || '' } : { th: 'Էլ. փոստ', get: u => u.email },
+          { th: 'Դեր', get: u => chip(NHR.ROLES[u.role] || u.role, (u.role === 'client' ? '' : 'acc') + ' lbl') },
+          { th: 'Ադմին', get: u => NHR.isAdmin(u) ? chip('Ադմին', 'ok') : '' },
+          { th: 'Կազմակերպություններ', get: u => NHR.userAccessText(u) },
+          { th: 'Մուտք', get: u => u.blocked ? chip('Արգելված', 'bad') : h('span', { class: 'muted' }, 'Թույլատրված') }
+        ], users, { onRow: u => NHR.userEdit(u) }), { flush: true, actions: !srv ? btn('Նոր օգտատեր', addUser, 'sm', 'plus') : null }),
+        panel('Դերերի և ադմինի իրավունքներ', h('div', { class: 'tw' }, h('table', { class: 't' },
+          h('thead', null, h('tr', null, h('th', null, ''), Object.values(NHR.ROLES).map(r => h('th', null, r)), h('th', null, 'Ադմին (ցանկացած դերով)'))),
+          h('tbody', null, ROLE_RIGHTS.map(r => h('tr', null, r[2] === '' && r[1].length > 20
+            ? [h('td', null, r[0]), h('td', { class: 'small', colspan: 2 }, r[1]), ...r.slice(3).map(c => h('td', { class: 'small' }, c))]
+            : r.map((c, i) => h('td', { class: i ? 'small' : '' }, c)))))))),
+        h('div', { class: 'muted small' }, srv ? 'Օգտատերը ավելանում է ինքնաբերաբար՝ Numetrix Tasks-ից առաջին մուտքի ժամանակ. Tasks-ի «Ղեկավար»-ը՝ Գլխավոր հաշվապահ և ադմին, «Աշխատակից»-ը՝ Հաշվապահ (առանց կազմակերպությունների, բացի Tasks-ում իր պատասխանատվությամբ կազմակերպություններից)։ Ադմինի բանալիով մուտքը միշտ ադմին է։'
           : 'Ամեն օգտատեր մտնում է իր անունով, որ երևա, թե ով ինչ է կազմել և հաստատել։')];
     }
     return h('div', { style: { display: 'contents' } }, pageHead('Կարգավորումներ'), NHR.tabs(tabs, setTab, (k) => { setTab = k; NHR.rerender(); }), body);
+  };
+})();
+
+</script>
+<script>
+/* Numetrix HR — ադմին և կազմակերպությունների հասանելիություն։
+   «Կարգավորումներ → Օգտատերեր և դերեր»՝ ադմինը նշանակում է դերը, ադմիններին և ամեն օգտատիրոջ կազմակերպությունները,
+   կազմակերպության քարտում («Ով է տեսնում»)՝ նույնը տվյալ կազմակերպության համար։
+   Էջը միայն փոխում է օգտատիրոջ գրառումը. սահմանափակումը գործում է սերվերում (Code.gs). օգտատերը չի ստանում
+   իրեն չթույլատրված կազմակերպությունների տվյալները և չի կարող դրանք փոխել։ */
+(function () {
+  const { h, field, sel, chk, panel, btn, chip } = NHR;
+  const S = () => NHR.state();
+  const byName = (a, b) => NHR.orgSortKey(a).localeCompare(NHR.orgSortKey(b), 'hy');
+  /* «Բոլորը» դրոշը՝ առանց ադմինի (հին գրառումներում՝ Գլխավոր և Ավագ հաշվապահ) */
+  const allFlag = (u) => u.allOrgs === true || (u.allOrgs == null && (u.role === 'chief' || u.role === 'senior'));
+  const userSort = (a, b) => (NHR.isAdmin(b) - NHR.isAdmin(a)) || String(a.name || '').localeCompare(String(b.name || ''), 'hy');
+
+  /** Օգտատիրոջ կազմակերպությունները՝ կարճ (աղյուսակի համար) */
+  NHR.userAccessText = (u) => {
+    if (NHR.allOrgsOf(u)) return 'Բոլորը';
+    const ids = u.orgIds || [], names = ids.map(id => NHR.org(id)).filter(Boolean).sort(byName).map(NHR.orgName);
+    const tr = S().orgs.filter(o => NHR.tasksResp(u, o) && !ids.includes(o.id)).length;
+    const parts = [];
+    if (names.length) parts.push(names.length > 3 ? `${names.slice(0, 3).join(', ')} և ևս ${names.length - 3}` : names.join(', '));
+    if (tr) parts.push(`Tasks-ում պատասխանատու՝ ${tr}`);
+    return parts.length ? parts.join(' + ') : h('span', { class: 'muted' }, 'Ոչ մեկը');
+  };
+
+  /** Կազմակերպությունների ընտրություն՝ որոնմամբ (x.orgIds)։ Tasks-ում այս օգտատիրոջ պատասխանատվությամբ կազմակերպությունները՝ նշված և անփոփոխ */
+  NHR.orgPicker = (x, u) => {
+    const wrap = h('div', { class: 'opick' });
+    let q = '';
+    const all = S().orgs.filter(o => o.served || (x.orgIds || []).includes(o.id)).sort(byName);
+    const draw = (keepFocus) => {
+      const old = wrap.querySelector('.ocheck'), top = old ? old.scrollTop : 0;
+      wrap.innerHTML = '';
+      const chosen = new Set(x.orgIds || []), who = Object.assign({}, u, { role: x.role });
+      const list = all.filter(o => !q || (NHR.orgName(o) + ' ' + o.tin).toLowerCase().includes(q.toLowerCase()));
+      const count = h('span', { class: 'muted' }, `Ընտրված՝ ${chosen.size}`);
+      const search = h('input', { type: 'search', value: q, placeholder: 'Որոնել անվանումով կամ ՀՎՀՀ-ով', 'aria-label': 'Որոնել կազմակերպություն',
+        oninput: (e) => { q = e.target.value; draw(true); } });
+      const setAll = (on) => { list.forEach(o => { if (on) chosen.add(o.id); else chosen.delete(o.id); }); x.orgIds = [...chosen].sort(); draw(); };
+      const box = h('div', { class: 'checklist ocheck' }, list.length ? list.map(o => {
+        const tr = NHR.tasksResp(who, o), on = chosen.has(o.id) || tr;
+        const cb = h('input', { type: 'checkbox', checked: on, disabled: tr });
+        const lab = h('label', { class: 'check' + (on ? ' on' : '') }, cb, h('span', { class: 'grow' }, NHR.orgName(o)), h('span', { class: 'code muted' }, o.tin),
+          tr ? chip('Tasks-ում պատասխանատու', 'acc') : null, o.served ? null : chip('չսպասարկվող'));
+        cb.addEventListener('change', () => {
+          if (cb.checked) chosen.add(o.id); else chosen.delete(o.id);
+          x.orgIds = [...chosen].sort(); lab.classList.toggle('on', cb.checked); count.textContent = `Ընտրված՝ ${chosen.size}`;
+        });
+        return lab;
+      }) : h('div', { class: 'muted small', style: { padding: '8px' } }, all.length ? 'Չգտնվեց' : 'Կազմակերպություն դեռ չկա'));
+      wrap.append(h('div', { class: 'row' }, search, h('div', { style: { flex: 1 } }), count,
+        btn('Նշել ցուցակինը', () => setAll(true), 'ghost sm'), btn('Հանել ցուցակինը', () => setAll(false), 'ghost sm')), box);
+      box.scrollTop = top;
+      if (keepFocus) { search.focus(); const n = search.value.length; try { search.setSelectionRange(n, n); } catch (e) { /* ոչինչ */ } }
+    };
+    draw();
+    return wrap;
+  };
+
+  /** Օգտատիրոջ պատուհանը (միայն ադմին). դեր, ադմին, կազմակերպություններ, մուտքի արգելք */
+  NHR.userEdit = (u) => {
+    if (!NHR.can('users') || !u) return;
+    const me = NHR.user(), self = u.id === me.id, key = u.login === 'admin';
+    const x = { role: u.role, admin: NHR.isAdmin(u), allOrgs: allFlag(u), orgIds: (u.orgIds || []).slice(), blocked: u.blocked === true };
+    const body = h('div', { style: { display: 'grid', gap: '12px' } });
+    const draw = () => {
+      body.innerHTML = '';
+      const adm = x.role !== 'client' && x.admin;
+      body.append(...[
+        h('div', { class: 'form' },
+          field('Դեր', sel(x, 'role', Object.entries(NHR.ROLES).filter(([k]) => !(self && k === 'client')), { empty: false, ro: key, onChange: draw }), { hint: 'Փաստաթղթերի իրավունքները՝ ըստ դերի' }),
+          h('div', { class: 'field' }, h('label', null, ' '), chk(x, 'admin', 'Ծրագրի ադմին', { ro: self || key || x.role === 'client', onChange: draw }))),
+        h('div', { class: 'muted small' }, adm
+          ? 'Ադմինը կառավարում է օգտատերերին և նրանց հասանելիությունը, կարգավորումները, համարները և ձևանմուշները, և տեսնում է բոլոր կազմակերպությունները։'
+          : x.role === 'client' ? 'Հաճախորդը միայն դիտում է իրեն տրված կազմակերպությունները։' : 'Ադմին չէ․ տեսնում է միայն ստորև նշված կազմակերպությունները։'),
+        adm ? null : field('Կազմակերպություններ', NHR.seg([['all', 'Բոլորը'], ['some', 'Միայն ընտրվածները']], x.allOrgs ? 'all' : 'some', (k) => { x.allOrgs = k === 'all'; draw(); }), { cls: 'wall' }),
+        adm || x.allOrgs ? null : NHR.orgPicker(x, u),
+        adm || x.allOrgs || x.role === 'client' ? null : h('div', { class: 'muted small' }, 'Numetrix Tasks-ում այս օգտատիրոջ պատասխանատվությամբ կազմակերպությունները երևում են ինքնաբերաբար (նշված են «Tasks-ում պատասխանատու»)։'),
+        h('div', { class: 'form' }, h('div', { class: 'field wall' }, chk(x, 'blocked', 'Մուտքը արգելված է (չի կարող բացել Numetrix HR-ը)', { ro: self || key }))),
+        self ? h('div', { class: 'note' }, h('div', null, 'Սա դուք եք․ ձեր ադմինի իրավունքը և մուտքը կարող է փոխել միայն մեկ այլ ադմին։'))
+          : key ? h('div', { class: 'note' }, h('div', null, 'Ադմինի բանալիով մուտքը միշտ ադմին է։')) : null
+      ].filter(Boolean));
+    };
+    draw();
+    NHR.modal({ title: u.name || 'Օգտատեր', wide: true, body, actions: [{ label: 'Չեղարկել' }, { label: 'Պահպանել', cls: 'primary', onClick: () => {
+      u.role = x.role; u.admin = x.role !== 'client' && !!x.admin; u.allOrgs = !!x.allOrgs; u.orgIds = x.orgIds.slice().sort(); u.blocked = !!x.blocked;
+      NHR.save(); NHR.rerender(); NHR.toast('Պահպանված է');
+    } }] });
+  };
+
+  /** Կազմակերպության քարտում՝ ով է տեսնում այս կազմակերպությունը (միայն ադմին). նշումը պահվում է անմիջապես */
+  NHR.orgAccessPanel = (o) => {
+    if (!NHR.can('users') || !o || !o.id || !NHR.org(o.id)) return null;
+    const users = S().users.filter(u => !u.blocked).sort(userSort);
+    const allU = users.filter(u => NHR.allOrgsOf(u)), limited = users.filter(u => !NHR.allOrgsOf(u));
+    const rows = limited.map(u => {
+      const tr = NHR.tasksResp(u, o), on = (u.orgIds || []).includes(o.id) || tr;
+      const cb = h('input', { type: 'checkbox', checked: on, disabled: tr });
+      cb.addEventListener('change', () => {
+        const s = new Set(u.orgIds || []);
+        if (cb.checked) s.add(o.id); else s.delete(o.id);
+        u.orgIds = [...s].sort(); NHR.save();
+        NHR.toast(cb.checked ? `${u.name}՝ տեսնում է այս կազմակերպությունը` : `${u.name}՝ այլևս չի տեսնում այս կազմակերպությունը`);
+        NHR.rerenderKeep();
+      });
+      return h('label', { class: 'check' + (on ? ' on' : '') }, cb, h('span', { class: 'grow' }, u.name), h('span', { class: 'muted small' }, NHR.ROLES[u.role] || ''), tr ? chip('Tasks-ում պատասխանատու', 'acc') : null);
+    });
+    return panel('Ով է տեսնում', h('div', { style: { display: 'grid', gap: '10px' } },
+      h('div', { class: 'small' }, h('span', { class: 'muted' }, 'Բոլոր կազմակերպությունները՝ '), allU.length ? allU.map(u => u.name + (NHR.isAdmin(u) ? ' (ադմին)' : '')).join(', ') : '—'),
+      limited.length ? h('div', { class: 'checklist acclist' }, rows) : h('div', { class: 'muted small' }, 'Սահմանափակ հասանելիությամբ օգտատեր չկա'),
+      h('div', { class: 'muted small' }, 'Նշումը պահվում է անմիջապես (քարտը պահելու կարիք չկա)։')),
+      { actions: btn('Օգտատերեր', () => NHR.openSettings('users'), 'ghost sm') });
   };
 })();
 
