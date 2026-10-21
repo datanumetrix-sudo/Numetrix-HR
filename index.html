@@ -576,6 +576,18 @@ hr.sep { border: 0; border-top: 1px solid var(--line-2); margin: 4px 0; }
 .opt-card.dis { opacity: .5; cursor: not-allowed; }
 .opt-card input { margin-top: 3px; flex: none; }
 .opt-card .k { font-family: var(--font-code); font-size: 12px; color: var(--muted); min-width: 28px; padding-top: 1px; }
+button.opt-card { font: inherit; color: inherit; text-align: left; width: 100%; }
+button.opt-card:disabled { opacity: .5; cursor: not-allowed; }
+.opt-card .sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.gdoc-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+.grp-names { font-size: 13.5px; line-height: 1.5; padding-top: 6px; }
+.grp-st { display: grid; gap: 2px; font-size: 12.5px; line-height: 1.35; }
+.grp-st.bad { color: var(--bad); }
+.grp-st.warn { color: var(--warn); }
+/* Ադմին՝ «Ադմին» սյունակի նշիչ */
+.adm-tg { min-height: 0; gap: 6px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.adm-tg.on { color: var(--ok); font-weight: 600; }
+.adm-tg input:disabled { cursor: not-allowed; }
 .amountf { display: flex; gap: 6px; align-items: center; }
 .amountf input { flex: 1; min-width: 0; }
 .amountf .seg { flex: none; }
@@ -931,7 +943,7 @@ input.bad { border-color: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, v
 <noscript><p style="padding:24px">Numetrix HR-ը աշխատում է միայն JavaScript-ով։</p></noscript>
 <script>window.NHR_SITE = true;</script>
 <script src="config.js"></script>
-<script>window.NHR_BUILD = '4cfb6dce60';</script>
+<script>window.NHR_BUILD = '6d23dbe0e7';</script>
 <script>
 /* Numetrix HR — ընդհանուր տեղեկատուներ, որոնք եկել են ՀԾ-ից կամ ստանդարտից։
    Համայնքներ՝ 930 տող ՀԾ-ի նկարներից (առանց ԼՂՀ-ի), երկրներ՝ ISO 3166 թվային կոդեր։ */
@@ -1871,7 +1883,7 @@ window.NHR_DEMO = function () {
     chat: 'M4 5h16v11H9l-5 4z', side: 'M4 4h16v16H4zM9 4v16', userPlus: 'M10 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M3 21v-1a6 6 0 0 1 6-6h2M18 14v6M15 17h6',
     contract: 'M7 3h7l5 5v13H7zM14 3v5h5M9.5 17.5c1.2-1.6 2.2-1.6 3 0s1.8 1.6 3-.5',
     badge: 'M6 4h12v17H6zM10 4V2h4v2M12 12.5a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4M9 17h6', user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1',
-    upload: 'M12 16V4M7 9l5-5 5 5M4 20h16',
+    upload: 'M12 16V4M7 9l5-5 5 5M4 20h16', shield: 'M12 3l7 3v5.5c0 4.4-3 7.9-7 9.5-4-1.6-7-5.1-7-9.5V6zM9 12l2 2 4-4',
     /* Փաստաթղթերի խմբերի քարտերի պատկերակներ */
     pen: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',
     sun: 'M12 16.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4',
@@ -1970,9 +1982,9 @@ window.NHR_DEMO = function () {
   NHR.orefName = (orgId, key, code) => { const r = NHR.oref(orgId, key).find(x => x.code === code); return r ? r.name : ''; };
   /* Ստորաբաժանումների, պաշտոնների և հավելումների տեսակների օգտագործումը կազմակերպությունում.
      { departments|positions|feeTypes: { կոդ: { emps՝ աշխատակիցներ (պատմությամբ), docs՝ փաստաթղթեր, staff՝ հաստիքներ } } } */
-  const OREF_KEYS = { departments: ['dept'], positions: ['position', 'offerPosition'], feeTypes: ['feeCode'] };
+  const OREF_KEYS = { departments: ['dept'], positions: ['position', 'offerPosition'], feeTypes: ['feeCode'], workplaces: ['workplace'] };
   NHR.orefUsage = (orgId) => {
-    const idx = { departments: {}, positions: {}, feeTypes: {} };
+    const idx = { departments: {}, positions: {}, feeTypes: {}, workplaces: {} };
     const walk = (x, seen, depth) => {
       if (!x || typeof x !== 'object' || depth > 10) return;
       if (Array.isArray(x)) { x.forEach(y => walk(y, seen, depth + 1)); return; }
@@ -1983,15 +1995,24 @@ window.NHR_DEMO = function () {
       }
     };
     const count = (x, field) => {
-      const seen = { departments: new Set(), positions: new Set(), feeTypes: new Set() };
+      const seen = { departments: new Set(), positions: new Set(), feeTypes: new Set(), workplaces: new Set() };
       walk(x, seen, 0);
       for (const list in seen) seen[list].forEach(code => { const c = idx[list][code] = idx[list][code] || { emps: 0, docs: 0, staff: 0 }; c[field]++; });
     };
     S.employments.forEach(e => { if (e.orgId === orgId) count(e.history || [], 'emps'); });
     S.documents.forEach(d => { if (d.orgId === orgId) count(d.fields || {}, 'docs'); });
-    (S.staffing || []).forEach(s => { if (s.orgId === orgId) count({ dept: s.dept, position: s.position }, 'staff'); });
+    (S.staffing || []).forEach(s => { if (s.orgId === orgId) count({ dept: s.dept, position: s.position, workplace: s.workplace }, 'staff'); });
     return idx;
   };
+  /* Պաշտոնի նկարագրի օգտագործումը (գրադարանը ընդհանուր է բոլոր կազմակերպությունների համար)՝ պաշտոններ, աշխատակիցներ, փաստաթղթեր */
+  NHR.descUsage = (id) => {
+    let pos = 0, emps = 0, docs = 0;
+    Object.keys(S.orgRefs || {}).forEach(k => (((S.orgRefs[k] || {}).positions) || []).forEach(r => { if (r.desc === id) pos++; }));
+    S.employments.forEach(e => { if ((e.history || []).some(x => x && x.desc === id)) emps++; });
+    S.documents.forEach(d => { if (d.fields && (d.fields.desc === id || (d.fields.after && d.fields.after.desc === id))) docs++; });
+    return { pos, emps, docs, total: pos + emps + docs };
+  };
+  NHR.descUseText = (u) => [u.pos ? `պաշտոն՝ ${u.pos}` : '', u.emps ? `աշխատակից՝ ${u.emps}` : '', u.docs ? `փաստաթուղթ՝ ${u.docs}` : ''].filter(Boolean).join(', ');
   NHR.useOf = (idx, key, code) => { const u = (idx[key] || {})[code] || { emps: 0, docs: 0, staff: 0 }; return Object.assign({ total: u.emps + u.docs + u.staff }, u); };
   NHR.useText = (u) => [u.emps ? `աշխատակից՝ ${u.emps}` : '', u.docs ? `փաստաթուղթ՝ ${u.docs}` : '', u.staff ? `հաստիք՝ ${u.staff}` : ''].filter(Boolean).join(', ');
   NHR.desc = (id) => S.posDescriptions.find(d => d.id === id);
@@ -2002,7 +2023,15 @@ window.NHR_DEMO = function () {
   /* Ադմին՝ admin = true (ադմինի բանալիով մուտքը՝ միշտ). մինչև 1.5.0 ստեղծված օգտատերերից (admin դաշտ չկա)՝ Գլխավոր հաշվապահը։
      Ադմինը կառավարում է օգտատերերին և հասանելիությունը, կարգավորումները, համարները, ձևանմուշները և տեսնում է բոլոր կազմակերպությունները։
      Նույն կանոնները՝ սերվերում (Code.gs-ի isAdminUser_, allOrgsUser_), որտեղ էլ գործում է սահմանափակումը */
-  NHR.isAdmin = (u) => !!u && (u.login === 'admin' || (u.role !== 'client' && (u.admin === true || (u.admin == null && u.role === 'chief'))));
+  /* Ժամանակավոր ադմին՝ admin = true և adminUntil = վերջին օրը (ներառյալ). հետո ինքնաբերաբար ադմին չէ (նույնը՝ սերվերում) */
+  NHR.adminUntil = (u) => { const d = String((u && u.adminUntil) || '').trim(); return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : ''; };
+  /* «Այսօր»-ը՝ Երևանի ժամով (UTC+4), ինչպես սերվերում, որ ժամկետը լրանա նույն պահին՝ անկախ համակարգչի ժամային գոտուց */
+  NHR.adminToday = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);
+  NHR.isAdmin = (u) => !!u && (u.login === 'admin' || (u.role !== 'client' && (u.admin === true ? (!NHR.adminUntil(u) || NHR.adminUntil(u) >= NHR.adminToday()) : (u.admin == null && u.role === 'chief'))));
+  NHR.adminTmp = (u) => NHR.isAdmin(u) && u.login !== 'admin' && !!NHR.adminUntil(u);
+  /* Ժամկետը լրացել է (admin = true, բայց վերջին օրն անցել է) */
+  NHR.adminExpired = (u) => !!u && u.admin === true && u.login !== 'admin' && !!NHR.adminUntil(u) && NHR.adminUntil(u) < NHR.adminToday();
+  NHR.adminText = (u) => NHR.adminTmp(u) ? `ադմին՝ մինչև ${NHR.fmtDate(NHR.adminUntil(u))}` : NHR.isAdmin(u) ? 'ադմին' : '';
   NHR.allOrgsOf = (u) => NHR.isAdmin(u) || (!!u && (u.allOrgs === true || (u.allOrgs == null && (u.role === 'chief' || u.role === 'senior'))));
   NHR.can = (what) => {
     const u = NHR.user(), r = u.role, adm = NHR.isAdmin(u);
@@ -3402,7 +3431,7 @@ window.NHR_DEMO = function () {
     }
     NHR.setState(st);
     st.currentUserId = r.me.id;
-    if (!st.users.find(u => u.id === r.me.id)) st.users.push({ id: r.me.id, name: r.me.name, email: '', role: r.me.role, admin: !!r.me.admin, allOrgs: !!r.me.allOrgs, orgIds: [] });
+    if (!st.users.find(u => u.id === r.me.id)) st.users.push({ id: r.me.id, name: r.me.name, email: '', role: r.me.role, admin: !!r.me.admin, adminUntil: r.me.adminUntil || '', allOrgs: !!r.me.allOrgs, orgIds: [] });
     let org = ''; try { org = localStorage.getItem(ORGKEY()) || ''; } catch (e) { org = ''; }
     st.currentOrgId = org;
     syncCfg(r.sync);
@@ -5722,6 +5751,8 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
     if (f._emp === undefined || f._emp !== d.empId) prep(d, e, f._emp !== undefined);
     const c0 = e ? NHR.empContract(e) : null;
     const sync = e ? NHR.agrSync(d) : null;
+    /* Խմբային ձևում թղթային պայմանագրի կետի համարն անհայտ է՝ փոփոխությունը գրվում է համաձայնագրում որպես առանձին դրույթ («Այլ դրույթ») */
+    if (ctx.group && sync && !sync.program) f.clauses.forEach(x => { if (x.auto && x.auto.startsWith('cat:') && x.op === 'edit' && !x.num) x.op = 'text'; });
     const cur = sync ? sync.before : {}, after = sync ? sync.after : {};
     const ch = f.changes;
     const posName = (code) => NHR.orefName(o.id, 'positions', code);
@@ -5736,6 +5767,8 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
         if (ds.length) { if (!ch.includes('desc')) ch.push('desc'); f.desc = pr && pr.desc && ds.some(x => x.id === pr.desc) ? pr.desc : ds[0].id; }
         redraw(); } });
       if (k === 'desc') { const ds = descsOf(ch.includes('position') ? f.position : cur.position); return sel(f, 'desc', ds.map(x => [x.id, x.variant]), { empty: ds.length ? 'Ընտրել' : 'Այս պաշտոնի նկարագիր չկա', onChange: redraw }); }
+      /* Խմբային ձևում աշխատավարձը՝ ամեն աշխատակցի համար առանձին (աշխատակիցների ցանկում) */
+      if (k === 'amount' && ctx.group) return h('span', { class: 'muted small' }, 'Ամեն աշխատակցի համար՝ ստորև');
       if (k === 'amount') { const el = inp(f, 'amount', { type: 'number', min: 0, onChange: rk }); el.dataset.fk = 'chg-amount'; return el; }
       if (k === 'feeCode') return sel(f, 'feeCode', NHR.oref(o.id, 'feeTypes').filter(x => ['01', '03'].includes(x.tabel)).map(x => [x.code, `${x.code} — ${x.name}`]), { empty: false, onChange: redraw });
       if (k === 'regime') return sel(f, 'regime', NHR.refOpts('regime', false), { empty: false, onChange: redraw });
@@ -5762,8 +5795,8 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
     const form = [
       panel('Համաձայնագիր', h('div', { class: 'form' },
         ctx.empPick(ctx.activeAt(f.effective)),
-        e && c0 ? field('Պայմանագիրը', NHR.seg([['program', 'Կազմված է ծրագրում'], ['paper', 'Թղթային']], f.mode, setMode), { cls: 'w2' }) : null,
-        ...contractBlock,
+        e && c0 && !ctx.group ? field('Պայմանագիրը', NHR.seg([['program', 'Կազմված է ծրագրում'], ['paper', 'Թղթային']], f.mode, setMode), { cls: 'w2' }) : null,
+        ...(ctx.group ? [] : contractBlock),
         field('Համաձայնագրի ամսաթիվ', inp(d, 'date', { type: 'date', onChange: redraw }), { req: true }),
         field('Փոփոխությունը գործում է սկսած', inp(f, 'effective', { type: 'date', onChange: redraw }), { req: true, hint: 'Այս օրվանից կթարմանա քարտը' }),
         field('Նախաձեռնող', NHR.seg([['parties', 'Կողմերի համաձայնությամբ'], ['employer', 'Գործատու (ՀՀ ԱՕ 105)']], f.initiator, (k) => { f.initiator = k; if (k === 'employer' && !f.noticeDate) f.noticeDate = today(); redraw(); }),
@@ -5779,10 +5812,10 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
         h('div', { class: 'multi' }, NHR.CHANGE_OPTS.map(([k, t]) => { const on = ch.includes(k); const cb = h('input', { type: 'checkbox', checked: on }); cb.addEventListener('change', () => toggle(k, cb.checked)); return h('label', { class: on ? 'on' : '' }, cb, t); })),
         ch.length ? table([
           { th: 'Պայման', get: ([k, t]) => t },
-          { th: 'Ներկայիս', get: ([k]) => NHR.termText(o, cur, k) || h('span', { class: 'muted' }, '—') },
+          ctx.group ? null : { th: 'Ներկայիս', get: ([k]) => NHR.termText(o, cur, k) || h('span', { class: 'muted' }, '—') },
           { th: 'Նոր', get: ([k]) => editor(k) }
-        ], NHR.CHANGE_OPTS.filter(([k]) => ch.includes(k)), { cls: 'chg-t' }) : null)) : null,
-      e ? NHR.agrClausePanel(d, sync, redraw) : null
+        ].filter(Boolean), NHR.CHANGE_OPTS.filter(([k]) => ch.includes(k)), { cls: 'chg-t' }) : null)) : null,
+      e && !ctx.group ? NHR.agrClausePanel(d, sync, redraw) : null
     ];
     /* Ստուգումներ */
     if (!d.empId) errs.push('Ընտրեք աշխատակցին');
@@ -6340,23 +6373,24 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
         h('div', { class: 'hint' }, 'Առանց այս նշման պայմանագիրը լուծել չի թույլատրվում (ՀՀ ԱՕ 114)')) : null,
       field(dir ? (c.dirKey === 'meeting' ? 'Ժողովի ամսաթիվ' : 'Որոշման ամսաթիվ') : 'Հրամանի ամսաթիվ', inp(d, 'date', { type: 'date', onChange: redraw }), { req: true }),
       dir ? field(c.dirKey === 'meeting' ? 'Արձանագրության համար' : 'Որոշման համար', tin(f, 'decisionNum', { code: true }), { hint: 'Գրվում է ձեռքով' }) : null,
-      d.code === '7.4' && t.term !== '1' && t.termEnd && f.dateOff !== t.termEnd ? h('div', { class: 'field' }, h('label', null, 'Պայմանագրի ավարտը'), quick('Ազատման օր', t.termEnd)) : null,
+      d.code === '7.4' && t.term !== '1' && t.termEnd && f.dateOff !== t.termEnd && !ctx.group ? h('div', { class: 'field' }, h('label', null, 'Պայմանագրի ավարտը'), quick('Ազատման օր', t.termEnd)) : null,
+      d.code === '7.4' && ctx.group ? h('div', { class: 'field wall' }, h('div', { class: 'hint' }, 'Որոշակի ժամկետով պայմանագրերի դեպքում ազատման օրը՝ ամեն աշխատակցի պայմանագրի ավարտի օրը')) : null,
       d.code === '7.3' && t.probationEnd ? h('div', { class: 'field' }, h('label', null, 'Փորձաշրջան'), h('div', { class: 'muted small', style: { paddingTop: '8px' } }, `ավարտվում է ${NHR.fmtDate(t.probationEnd)}-ին`)) : null,
-      e && !cd ? [field('Պայմանագրի համար', tin(f, 'contractNum', { code: true }), { hint: 'Ծրագրում կազմված պայմանագիր չկա․ լռելյայն՝ տաբելային համարը' }),
+      e && !cd && !ctx.group ? [field('Պայմանագրի համար', tin(f, 'contractNum', { code: true }), { hint: 'Ծրագրում կազմված պայմանագիր չկա․ լռելյայն՝ տաբելային համարը' }),
         field('Պայմանագրի ամսաթիվ', inp(f, 'contractDate', { type: 'date', onChange: redraw }))] : null,
       d.code === '7.1' ? [field('Դիմումի ամսաթիվ', inp(f, 'applicationDate', { type: 'date', onChange: redraw }), { req: true }),
-        n && n.minOff && f.dateOff !== n.minOff ? h('div', { class: 'field' }, h('label', null, 'Ծանուցման ժամկետի ավարտը'), quick('Ազատման օր', n.minOff)) : null,
+        n && n.minOff && f.dateOff !== n.minOff && !ctx.group ? h('div', { class: 'field' }, h('label', null, 'Ծանուցման ժամկետի ավարտը'), quick('Ազատման օր', n.minOff)) : null,
         field('Ծանուցման ժամկետը (ՀՀ ԱՕ 112)', sel(f, 'empNotice', [['30', '30 օր'], ['5', '5 օր՝ հիվանդություն, հաշմանդամություն կամ գործատուի կողմից օրենքի խախտում']], { empty: false, onChange: redraw }), { cls: 'w2' })] : null,
       d.code === '7.2' ? [field('Համաձայնագրի ամսաթիվ', inp(f, 'agreementDate', { type: 'date', onChange: redraw }), { req: true }),
         field('Հատուցում (դրամ)', tin(f, 'compAmount', { type: 'number', min: 0, ph: 'կամավոր' }), { hint: 'Եթե Կողմերը պայմանավորվել են լրացուցիչ վճարման մասին' })] : null,
-      field('Չօգտագործված արձակուրդի օրեր', h('input', { type: 'text', readonly: true, tabindex: -1, class: 'code', value: c ? NHR.fmtQty(c.unused) : '' }), { hint: 'Ազատման օրվա դրությամբ (ՀՀ ԱՕ 170)' }))));
+      ctx.group ? null : field('Չօգտագործված արձակուրդի օրեր', h('input', { type: 'text', readonly: true, tabindex: -1, class: 'code', value: c ? NHR.fmtQty(c.unused) : '' }), { hint: 'Ազատման օրվա դրությամբ (ՀՀ ԱՕ 170)' }))));
 
     /* Ծանուցում (գործատուի կողմից) */
     const offerOn = d.code === '7.6' || (d.code === '7.5' && s === 'red');
     if (offerOn && !f.offer) f.offer = 'no';
     const notice = r.notice && r.notice !== 'employee' ? panel('Ծանուցում', h('div', { class: 'form' },
       field('Ծանուցման ամսաթիվ', inp(f, 'noticeDate', { type: 'date', onChange: redraw }), { req: true, hint: n ? `Ժամկետը՝ ${n.label}${n.kind === 'tenure' ? ` (ստաժը՝ ${n.years} տարի)` : ''}${n.law ? `, ${n.law}` : ''}` : null }),
-      n && n.minOff ? h('div', { class: 'field' }, h('label', null, 'Ամենավաղ ազատման օրը'), f.dateOff !== n.minOff ? quick('Ազատման օր', n.minOff) : h('div', { class: 'muted small', style: { paddingTop: '8px' } }, NHR.fmtDate(n.minOff))) : null,
+      n && n.minOff && !ctx.group ? h('div', { class: 'field' }, h('label', null, 'Ամենավաղ ազատման օրը'), f.dateOff !== n.minOff ? quick('Ազատման օր', n.minOff) : h('div', { class: 'muted small', style: { paddingTop: '8px' } }, NHR.fmtDate(n.minOff))) : null,
       ['7.3', '7.5', '7.6'].includes(d.code) ? field(d.code === '7.3' ? 'Փորձաշրջանի արդյունքները (կամավոր)' : 'Մանրամասներ (կամավոր)', tarea(f, 'groundsText', { rows: 2 }), { cls: 'wall', hint: 'Գրվում է ծանուցման մեջ՝ փակագծերում' }) : null,
       d.code === '7.9' ? [field('Անաշխատունակության սկիզբ', inp(f, 'sickFrom', { type: 'date', onChange: redraw }), { hint: 'Եթե բացակայում է անընդմեջ' }),
         field('Օրերը վերջին 12 ամսում', tin(f, 'sickDays', { type: 'number', min: 0 }), { hint: 'Անաշխատունակության թերթիկներով' })] : null,
@@ -6458,7 +6492,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
   const ini = (name) => name.split(/\s+/).filter(Boolean).map(s => s[0]).join('').slice(0, 2).toUpperCase();
   const TITLES = { docs: 'Փաստաթղթեր', orgs: 'Կազմակերպություններ', org: 'Կազմակերպություն', employees: 'Աշխատակիցներ', employee: 'Աշխատակցի քարտ', documents: 'Փաստաթղթերի մատյան', doc: 'Փաստաթուղթ',
     newdoc: 'Նոր փաստաթուղթ', register: 'Գրանցում', contract: 'Պայմանագիր', staffing: 'Հաստիքացուցակ', timesheet: 'Տաբել', trainings: 'Ուսուցումներ', reports: 'Հաշվետվություններ',
-    report: 'Հաշվետվություն', import: 'Ներմուծում ՀԾ-ից', refs: 'Տեղեկատուներ', settings: 'Կարգավորումներ', badge: 'Անվանաքարտեր', registry: 'Ծառայությունների ռեեստր', civreg: 'Ռեեստր' };
+    report: 'Հաշվետվություն', import: 'Ներմուծում ՀԾ-ից', refs: 'Տեղեկատուներ', settings: 'Կարգավորումներ', admin: 'Ադմին', badge: 'Անվանաքարտեր', registry: 'Ծառայությունների ռեեստր', civreg: 'Ռեեստր' };
   /* Ներդիրի անվանումը՝ ըստ բաց էջի */
   NHR.tabTitle = (r) => {
     const S = NHR.state(), empName = (id) => { const e = NHR.emp(id); return e ? NHR.shortName(NHR.empPerson(e)) : ''; };
@@ -6491,7 +6525,9 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       sub: [['org', 'Կազմակերպության քարտ'], ['orgs', 'Բոլոր կազմակերպությունները']] },
     { key: 'refs', label: 'Տեղեկատուներ', icon: 'refs', route: () => ({ page: 'refs' }), pages: ['refs'] },
     { key: 'import', label: 'Ներդրումային տվյալներ', icon: 'import', route: () => ({ page: 'import' }), pages: ['import'], perm: 'edit' },
-    { key: 'settings', label: 'Կարգավորումներ', icon: 'gear', route: () => ({ page: 'settings' }), pages: ['settings'], perm: 'settings' }
+    { key: 'settings', label: 'Կարգավորումներ', icon: 'gear', route: () => ({ page: 'settings' }), pages: ['settings'], perm: 'settings' },
+    /* Ադմին՝ օգտատերեր, ադմիններ և նրանց կազմակերպությունները (միայն ադմինին) */
+    { key: 'admin', label: 'Ադմին', icon: 'shield', route: () => ({ page: 'admin' }), pages: ['admin'], perm: 'users' }
   ];
   NHR.sectionOf = (r) => NHR.SECTIONS.find(s => s.pages.includes(r.page)) || null;
   const sections = () => NHR.SECTIONS.filter(s => !s.perm || NHR.can(s.perm));
@@ -6549,7 +6585,8 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       NHR.serverMode ? h('div', { class: 'side-foot' },
         h('div', { class: 'ucard fixed' },
           h('span', { class: 'uav', 'aria-hidden': 'true' }, ini(u.name || '?')),
-          h('div', { class: 'uinfo' }, h('b', null, u.name), h('span', null, NHR.ROLES[u.role] + (NHR.isAdmin(u) ? ' · ադմին' : '')))),
+          h('div', { class: 'uinfo', title: [NHR.ROLES[u.role], NHR.adminText(u)].filter(Boolean).join(' · ') }, h('b', null, u.name), h('span', null, NHR.ROLES[u.role] + (NHR.isAdmin(u) && !NHR.adminTmp(u) ? ' · ադմին' : '')),
+            NHR.adminTmp(u) ? h('span', null, NHR.adminText(u)) : null)),
         h('button', { class: 'reset', type: 'button', onclick: () => NHR.logout() }, 'Ելք'))
       : h('div', { class: 'side-foot' },
         h('div', { class: 'ucard', title: 'Փոխել օգտատիրոջը' },
@@ -6598,12 +6635,12 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       })));
     }
     /* Սերվերով տարբերակում կազմակերպություն դեռ չկա (առաջին համաժամեցումից առաջ) */
-    if (!NHR.curOrg() && !['orgs', 'org', 'settings', 'refs'].includes(route.page)) {
+    if (!NHR.curOrg() && !['orgs', 'org', 'settings', 'refs', 'admin'].includes(route.page)) {
       /* սահմանափակ օգտատեր, որին դեռ կազմակերպություն տրված չէ (սերվերը չի ուղարկում ուրիշների տվյալները) */
       const limited = NHR.serverMode && !NHR.allOrgsOf(NHR.user());
       mainEl.appendChild(h('div', { class: 'empty-start' },
         h('h1', null, limited ? 'Ձեզ դեռ կազմակերպություն տրված չէ' : 'Կազմակերպություն դեռ չկա'),
-        h('p', null, limited ? 'Դիմեք ադմինին. «Կարգավորումներ → Օգտատերեր և դերեր»-ում նա կնշի ձեր կազմակերպությունները (կամ Numetrix Tasks-ում ձեզ կնշանակեն կազմակերպության պատասխանատու)։ Կարող եք նաև ավելացնել նոր կազմակերպություն՝ այն կլինի ձեզ հասանելի։'
+        h('p', null, limited ? 'Դիմեք ադմինին. «Ադմին» բաժնում նա կնշի ձեր կազմակերպությունները (կամ Numetrix Tasks-ում ձեզ կնշանակեն կազմակերպության պատասխանատու)։ Կարող եք նաև ավելացնել նոր կազմակերպություն՝ այն կլինի ձեզ հասանելի։'
           : NHR.serverMode ? 'Կազմակերպությունները գալիս են Numetrix Tasks-ից («Սպասարկում ենք» նշվածները)։ Բացեք «Կազմակերպություններ» և սեղմեք «Համաժամեցնել հիմա», կամ ավելացրեք նորը։' : 'Ավելացրեք կազմակերպություն։'),
         h('div', { class: 'row' }, NHR.btn('Կազմակերպություններ', () => NHR.go({ page: 'orgs' }), 'primary'),
           NHR.can('edit') ? NHR.btn('Նոր կազմակերպություն', () => NHR.open({ page: 'org', id: 'new' }), '', 'plus') : null)));
@@ -7116,6 +7153,64 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
   };
   const pickedSet = () => { const ts = NHR.tabState('employees'); return (ts.picked = ts.picked || new Set()); };
   NHR.clearSelection = () => pickedSet().clear();
+
+  /* Խմբային փաստաթուղթ՝ նշված աշխատակիցների համար. տեսակի ընտրություն (պայմանագրեր և անվանաքարտեր՝ իրենց պատուհաններով) */
+  const GROUP_PICK = [['Աշխատանքային պայմանագրեր', ['contracts']], ['Արձակուրդներ', ['3.1', '3.2', '4.1', '4.7', '4.9', '4.10']], ['Գործուղումներ', ['5.1', '5.2']],
+    ['Համաձայնագրեր', ['6.1']], ['Աշխատանքի ազատում', ['7.1', '7.2', '7.4', '7.5']], ['Օժանդակ', ['badges']]];
+  NHR.groupDocModal = (emps) => {
+    const work = emps.filter(e => e.contractType === '1');
+    let close = null;
+    const go = (code) => {
+      if (close) close();
+      if (code === 'contracts') { NHR.groupContractsModal(emps); return; }
+      if (code === 'badges') { NHR.open({ page: 'badge', ids: work.map(e => e.id) }); return; }
+      NHR.go({ page: 'newdoc', code, ids: work.map(e => e.id) });
+    };
+    const item = (code) => {
+      if (code === 'contracts') return h('button', { type: 'button', class: 'opt-card', onclick: () => go(code) }, h('span', { class: 'k' }, '1.x'), h('span', null, 'Աշխատանքային պայմանագրեր', h('span', { class: 'sub' }, 'Պայմանագիր չունեցողների համար')));
+      if (code === 'badges') return h('button', { type: 'button', class: 'opt-card' + (work.length ? '' : ' dis'), disabled: work.length ? null : true, onclick: () => go(code) }, h('span', { class: 'k' }, '9.1'), h('span', null, 'Անվանաքարտեր'));
+      return h('button', { type: 'button', class: 'opt-card' + (work.length ? '' : ' dis'), disabled: work.length ? null : true, onclick: () => go(code) }, h('span', { class: 'k' }, code), h('span', null, NHR.docDef(code).name));
+    };
+    close = NHR.modal({ title: `Փաստաթուղթ ${emps.length} աշխատակցի համար`, wide: true, body: h('div', { style: { display: 'grid', gap: '12px' } },
+      h('div', { class: 'muted small' }, 'Ընտրեք տեսակը։ Տվյալները կլրացնեք մեկ անգամ, իսկ ամեն աշխատակցի համար կկազմվի առանձին փաստաթուղթ՝ իր համարով։'),
+      work.length < emps.length ? h('div', { class: 'note info' }, NHR.icon('warn'), h('div', null, `Քաղաքացիաիրավական պայմանագրով ${emps.length - work.length} անձ կներառվի միայն պայմանագրերում։`)) : null,
+      GROUP_PICK.map(([g, codes]) => h('div', { style: { display: 'grid', gap: '6px' } }, h('div', { class: 'opt-grp' }, g), h('div', { class: 'gdoc-pick' }, codes.map(item))))),
+      actions: [{ label: 'Չեղարկել' }] });
+  };
+
+  /* Աշխատակիցների ջնջում (օր.՝ սխալմամբ գրանցված կամ ներմուծված)։ Ջնջվում են միայն նրանք, ում հաստատված կամ չեղարկված
+     փաստաթուղթ և ուսուցում չկա. նրանց սևագրերը ջնջվում են, անձը՝ եթե այլ աշխատանք չունի */
+  NHR.empDeleteBlock = (e) => {
+    const S = NHR.state();
+    const n = S.documents.filter(d => d.empId === e.id && d.status !== 'draft').length;
+    if (n) return `ունի հաստատված կամ չեղարկված փաստաթուղթ (${n})․ ազատելու համար՝ «7. Աշխատանքի ազատում»`;
+    if ((S.trainings || []).some(t => t.empId === e.id)) return 'ունի ուսուցումներ';
+    return '';
+  };
+  NHR.deleteEmployees = (list) => {
+    const S = NHR.state(), ids = new Set(list.map(e => e.id));
+    S.documents = S.documents.filter(d => !(ids.has(d.empId) && d.status === 'draft'));
+    S.employments = S.employments.filter(e => !ids.has(e.id));
+    list.forEach(e => {
+      if (!S.employments.some(x => x.personId === e.personId)) S.people = S.people.filter(p => p.id !== e.personId);
+      const ts = (S.timesheet || {})[e.orgId];
+      if (ts) Object.keys(ts).forEach(ym => { if (ts[ym] && ts[ym][e.id]) delete ts[ym][e.id]; });
+    });
+    pickedSet().clear();
+    NHR.save();
+  };
+  NHR.deleteEmpsModal = (emps) => {
+    const S = NHR.state();
+    const rows = emps.map(e => ({ e, why: NHR.empDeleteBlock(e), drafts: S.documents.filter(d => d.empId === e.id && d.status === 'draft').length }));
+    const ok = rows.filter(r => !r.why), no = rows.filter(r => r.why);
+    const nm = (e) => `${e.tabel} — ${NHR.fullName(NHR.empPerson(e))}`;
+    const drafts = ok.reduce((a, r) => a + r.drafts, 0);
+    NHR.modal({ title: `Ջնջել աշխատակիցներին (${emps.length})`, wide: true, body: h('div', { style: { display: 'grid', gap: '10px' } },
+      ok.length ? h('div', null, h('b', null, `Կջնջվի՝ ${ok.length}`), h('div', { class: 'small', style: { marginTop: '4px' } }, ok.map(r => h('div', null, nm(r.e), r.drafts ? h('span', { class: 'muted' }, ` · սևագիր՝ ${r.drafts}`) : null)))) : null,
+      ok.length ? h('div', { class: 'muted small' }, `Կջնջվեն նաև աշխատակիցների տվյալները${drafts ? ` և նրանց ${drafts} սևագիրը` : ''}։ Ջնջումը հնարավոր չէ հետ բերել (բացի աղյուսակի տարբերակների պատմությունից)։`) : null,
+      no.length ? h('div', { class: 'note info' }, NHR.icon('warn'), h('div', null, h('b', null, `Չի ջնջվի՝ ${no.length}`), no.map(r => h('div', { class: 'small' }, `${nm(r.e)}՝ ${r.why}`)))) : null),
+      actions: [{ label: ok.length ? 'Չեղարկել' : 'Փակել' }, ok.length ? { label: `Ջնջել (${ok.length})`, cls: 'danger', onClick: () => { NHR.deleteEmployees(ok.map(r => r.e)); NHR.rerender(); NHR.toast(`Ջնջվեց ${ok.length} աշխատակից`); } } : null].filter(Boolean) });
+  };
   const qrow = (k, v) => [h('dt', null, k), h('dd', null, v == null || v === '' ? '—' : v)];
   /* Ցուցակում ընտրված աշխատակցի համառոտ տվյալները՝ աջ մասում */
   function quickView(e, o, close) {
@@ -7176,8 +7271,10 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
     const qe = ts.qv ? all.find(e => e.id === ts.qv) : null;
     const bulk = canEdit ? h('div', { class: 'bulkbar' },
       h('button', { class: 'btn primary sm', disabled: sel.length ? null : true, title: sel.length ? null : 'Նշեք աշխատակիցներին ցուցակում', onclick: () => NHR.groupContractsModal(sel) }, NHR.icon('contract'), 'Ստեղծել խմբային պայմանագրեր'),
+      h('button', { class: 'btn sm', disabled: sel.length ? null : true, title: sel.length ? null : 'Նշեք աշխատակիցներին ցուցակում', onclick: () => NHR.groupDocModal(sel) }, NHR.icon('filePlus'), 'Կազմել փաստաթուղթ'),
       h('button', { class: 'btn sm', disabled: selDocs.length ? null : true, title: selDocs.length ? null : 'Ընտրվածների մեջ պայմանագիր ունեցող չկա', onclick: () => NHR.sendModal(selDocs) }, NHR.icon('send'), 'Ուղարկել պայմանագրերը'),
       h('button', { class: 'btn sm', disabled: sel.some(e => e.contractType === '1') ? null : true, onclick: () => NHR.open({ page: 'badge', ids: sel.filter(e => e.contractType === '1').map(e => e.id) }) }, NHR.icon('badge'), 'Անվանաքարտեր'),
+      h('button', { class: 'btn sm danger', disabled: sel.length ? null : true, title: sel.length ? null : 'Նշեք աշխատակիցներին ցուցակում', onclick: () => NHR.deleteEmpsModal(sel) }, NHR.icon('trash'), 'Ջնջել'),
       sel.length ? h('span', { class: 'cnt-sel' }, 'Ընտրված է ', h('b', null, sel.length)) : null,
       sel.length ? h('button', { class: 'btn ghost sm', onclick: () => { picked.clear(); NHR.rerender(); } }, 'Մաքրել ընտրությունը') : null) : null;
 
@@ -7792,7 +7889,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       const positions = NHR.oref(o.id, 'positions');
       const posName = (positions.find(p => p.code === x.position) || {}).name;
       const descs = st.posDescriptions.filter(d => d.position === posName);
-      if (x.position && !x.desc && descs[0]) x.desc = (positions.find(p => p.code === x.position).desc) || descs[0].id;
+      if (x.position && !x.desc && descs[0]) { const pd = (positions.find(p => p.code === x.position) || {}).desc; x.desc = descs.some(d => d.id === pd) ? pd : descs[0].id; }
       /* Պաշտոնն ընտրելիս՝ արձակուրդի ցանկերի հուշում (երկարացված կամ լրացուցիչ) */
       const posNote = x.position ? NHR.leavePosNote(o.id, x.position, { onChange: redraw }) : null;
       const restBad = (x.restDays || []).length !== 7 - (x.workWeek === '6' ? 6 : 5);
@@ -8128,7 +8225,8 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
     const offBtn = (label, ic) => h('button', { class: 'btn sm', disabled: true, title: OFF }, ic ? NHR.icon(ic) : null, label);
     const chatBtn = (kind, d) => { const e = NHR.emp(d.empId), p = e ? NHR.empPerson(e) : {}, ok = !!NHR.phoneIntl(p.mobile), label = kind === 'wa' ? 'WhatsApp' : 'Telegram';
       return h('button', { type: 'button', class: 'btn sm', disabled: ok ? null : true, title: ok ? `Բացել ${label}-ի զրույցը՝ միայն այս ստացողի հետ` : 'Հեռախոսահամար չկա', onclick: () => openChat(kind, d) }, NHR.icon(kind === 'wa' ? 'chat' : 'send'), label); };
-    NHR.modal({ title: list.length > 1 ? `Ուղարկել կողմերին · ${list.length} պայմանագիր` : 'Ուղարկել կողմին', wide: true,
+    const what = list.every(d => /^1\.|^2\.2$/.test(d.code)) ? 'պայմանագիր' : 'փաստաթուղթ';
+    NHR.modal({ title: list.length > 1 ? `Ուղարկել կողմերին · ${list.length} ${what}` : 'Ուղարկել կողմին', wide: true,
       body: h('div', { style: { display: 'grid', gap: '12px' } },
         h('div', { class: 'note' }, NHR.icon('mail'), h('div', null, 'Յուրաքանչյուրին ուղարկվում են միայն իր փաստաթղթերը՝ առանձին նամակով։ WhatsApp-ը և Telegram-ը բացում են միայն այդ ստացողի զրույցը՝ պատրաստ տեքստով․ փաստաթղթի ֆայլը կցեք Դուք։')),
         table([
@@ -8683,6 +8781,49 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
     if (jf.q) { const q = jf.q.toLowerCase(); docs = docs.filter(d => (NHR.docEmpName(d) + ' ' + NHR.docNumberText(d)).toLowerCase().includes(q)); }
     docs.sort((a, b) => (a.status === 'draft' ? -1 : 0) - (b.status === 'draft' ? -1 : 0) || b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || ''));
     const nextOrd = NHR.nextOrder(o.id, today()).number, nextAgr = NHR.nextAgreement(o.id, today()), nextTab = NHR.nextTabel(o.id);
+    /* Խմբային գործողություններ՝ նշված փաստաթղթերով (հաստատել և ջնջել սևագրերը, PDF-ները Google Drive-ում) */
+    const canEdit = NHR.can('edit');
+    const picked = jts.picked = jts.picked instanceof Set ? jts.picked : new Set();
+    for (const id of [...picked]) if (!S.documents.some(d => d.id === id && d.orgId === o.id)) picked.delete(id);
+    const sel = S.documents.filter(d => picked.has(d.id));
+    const selDrafts = sel.filter(d => d.status === 'draft'), selPdf = sel.filter(d => d.status === 'approved' && NHR.docHasText(d));
+    const cb = (d) => h('input', { type: 'checkbox', checked: picked.has(d.id), 'aria-label': 'Ընտրել', onclick: (ev) => ev.stopPropagation(), onchange: (ev) => { if (ev.target.checked) picked.add(d.id); else picked.delete(d.id); NHR.rerenderKeep(); } });
+    const headCb = h('input', { type: 'checkbox', 'aria-label': 'Ընտրել բոլորը', checked: docs.length > 0 && docs.every(d => picked.has(d.id)), onchange: (ev) => { docs.forEach(d => { if (ev.target.checked) picked.add(d.id); else picked.delete(d.id); }); NHR.rerenderKeep(); } });
+    const docName = (d) => `${d.code} · ${NHR.docEmpName(d) || NHR.docDef(d.code).name}`;
+    const approveMany = () => {
+      const res = selDrafts.slice().sort((a, b) => a.date.localeCompare(b.date) || (a.createdAt || '').localeCompare(b.createdAt || ''))
+        .map(d => { const x = JSON.parse(JSON.stringify(d)), c = NHR.docCheck(x); return { d, x, errs: c.errs }; });
+      const ok = res.filter(r => !r.errs.length), bad = res.filter(r => r.errs.length);
+      NHR.modal({ title: `Հաստատել նշված սևագրերը (${res.length})`, wide: true, body: h('div', { style: { display: 'grid', gap: '10px' } },
+        ok.length ? h('div', null, h('b', null, `Կհաստատվի՝ ${ok.length}`), h('div', { class: 'small muted' }, ok.map(r => docName(r.d)).join(', ')),
+          h('div', { class: 'small muted', style: { marginTop: '4px' } }, 'Համարները կտրվեն ըստ ամսաթվերի հերթականության։ Հաստատելուց հետո փաստաթղթերը չեն փոխվում։')) : null,
+        bad.length ? h('div', { class: 'note warn' }, h('div', null, h('b', null, `Չի հաստատվի՝ ${bad.length} (սխալներ կան, բացեք և ուղղեք)`), bad.map(r => h('div', { class: 'small' }, `${docName(r.d)}՝ ${r.errs[0]}`)))) : null),
+        actions: [{ label: ok.length ? 'Չեղարկել' : 'Փակել' }, ok.length ? { label: `Հաստատել (${ok.length})`, cls: 'stamp', onClick: () => {
+          ok.forEach(r => { const i = S.documents.indexOf(r.d); if (i < 0) return; S.documents[i] = r.x; NHR.approve(r.x); });
+          picked.clear(); NHR.save(); NHR.rerender(); NHR.toast(`Հաստատվեց ${ok.length} փաստաթուղթ`);
+        } } : null].filter(Boolean) });
+    };
+    const deleteMany = () => {
+      const skip = sel.length - selDrafts.length;
+      NHR.confirm(`Ջնջել նշված սևագրերը (${selDrafts.length})`, h('div', { style: { display: 'grid', gap: '8px' } },
+        h('div', null, `Կջնջվի ${selDrafts.length} սևագիր։ Համար դեռ չի կտրվել։`),
+        skip ? h('div', { class: 'muted' }, `Հաստատված և չեղարկված ${skip} փաստաթուղթը չի ջնջվի (հաստատվածը կարելի է միայն չեղարկել)։`) : null), 'Ջնջել', () => {
+        const del = new Set(selDrafts.map(d => d.id));
+        S.documents = S.documents.filter(d => !del.has(d.id));
+        picked.clear(); NHR.save(); NHR.rerender(); NHR.toast(`Ջնջվեց ${del.size} սևագիր`);
+      }, 'danger');
+    };
+    const pdfMany = () => {
+      if (!NHR.serverMode) { NHR.toast('Աշխատում է Google-ում տեղադրված (սերվերով) տարբերակում'); return; }
+      if (!NHR.driveUrlOf(o)) { NHR.toast('Կազմակերպության քարտում («HR կարգավորումներ») նշեք Google Drive-ի HR թղթապանակը'); return; }
+      NHR.driveSaveMany(selPdf).then(() => { picked.clear(); NHR.rerenderKeep(); });
+    };
+    const bulk = canEdit ? h('div', { class: 'bulkbar' },
+      h('button', { class: 'btn stamp sm', disabled: selDrafts.length ? null : true, title: selDrafts.length ? null : 'Նշեք սևագրերը ցուցակում', onclick: approveMany }, NHR.icon('stamp'), `Հաստատել նշվածները${selDrafts.length ? ` (${selDrafts.length})` : ''}`),
+      h('button', { class: 'btn sm', disabled: selPdf.length ? null : true, title: selPdf.length ? null : 'Նշեք հաստատված փաստաթղթերը', onclick: pdfMany }, NHR.icon('upload'), `PDF-ները Drive-ում${selPdf.length ? ` (${selPdf.length})` : ''}`),
+      h('button', { class: 'btn sm danger', disabled: selDrafts.length ? null : true, title: selDrafts.length ? null : 'Ջնջվում են միայն սևագրերը', onclick: deleteMany }, NHR.icon('trash'), `Ջնջել սևագրերը${selDrafts.length ? ` (${selDrafts.length})` : ''}`),
+      sel.length ? h('span', { class: 'cnt-sel' }, 'Ընտրված է ', h('b', null, sel.length)) : null,
+      sel.length ? h('button', { class: 'btn ghost sm', onclick: () => { picked.clear(); NHR.rerenderKeep(); } }, 'Մաքրել ընտրությունը') : null) : null;
     const q = h('input', { type: 'search', id: 'doc-search', placeholder: 'Որոնել աշխատակցով կամ համարով', value: jf.q, style: { maxWidth: '280px' },
       oninput: (ev) => { jf.q = ev.target.value; const pos = ev.target.selectionStart; NHR.rerender(); const el = document.getElementById('doc-search'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } } });
     const gSel = NHR.sel(jf, 'group', CAT.groups.map(g => [g.code, `${g.code}. ${g.name}`]), { empty: 'Բոլոր խմբերը', onChange: NHR.rerender }); gSel.style.maxWidth = '280px';
@@ -8692,7 +8833,8 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       pageHead('Փաստաթղթերի մատյան', h('span', null, 'Հաջորդ համարները՝ հրաման ', h('b', { class: 'code' }, nextOrd), ' · համաձայնագիր ', h('b', { class: 'code' }, nextAgr), ' · տաբելային համար ', h('b', { class: 'code' }, nextTab)),
         NHR.can('edit') ? btn('Նոր փաստաթուղթ', () => NHR.open({ page: 'docs' }), 'primary', 'plus') : null),
       h('div', { class: 'row' }, gSel, stSel, ySel, q),
-      panel(null, table([
+      panel(null, [bulk, table([
+        canEdit ? { th: headCb, cls: 'cb', get: cb } : null,
         { th: 'Ամսաթիվ', cls: 'code', get: d => NHR.fmtDate(d.date) },
         { th: 'Համար', get: d => d.status === 'draft' ? h('span', { class: 'muted' }, 'կտրվի հաստատելիս') : h('span', { class: 'code' }, NHR.docNumberText(d)) },
         { th: 'Փաստաթուղթ', get: d => h('div', null, h('span', { class: 'tag' }, d.code), ' ', NHR.docDef(d.code).name, d.backdated ? h('span', { class: 'sub' }, 'Հետին ամսաթվով') : null,
@@ -8703,7 +8845,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
         { th: 'Վիճակ', get: d => h('div', { style: { display: 'flex', gap: '4px', flexWrap: 'wrap' } }, NHR.docStatusChip(d), d.code === '2.2' && d.status === 'approved' && NHR.civilState(d).key === 'done' ? NHR.chip('Ավարտված', 'ok') : null, NHR.driveChip(d)) },
         { th: 'Ձևանմուշ', cls: 'code', get: d => d.tplVersion || '—' },
         { th: 'Կազմել է', get: d => { const u = S.users.find(x => x.id === d.createdBy); return u ? u.name : ''; } }
-      ], docs, { onRow: d => NHR.open({ page: 'doc', id: d.id }), rowCls: d => d.status === 'cancelled' ? 'dim' : '', empty: jf.group || jf.status || jf.year || jf.q ? 'Այս ֆիլտրով փաստաթուղթ չկա' : `${NHR.orgName(o)}-ում փաստաթղթեր դեռ չկան` }), { flush: true })
+      ].filter(Boolean), docs, { onRow: d => NHR.open({ page: 'doc', id: d.id }), rowCls: d => d.status === 'cancelled' ? 'dim' : '', empty: jf.group || jf.status || jf.year || jf.q ? 'Այս ֆիլտրով փաստաթուղթ չկա' : `${NHR.orgName(o)}-ում փաստաթղթեր դեռ չկան` })], { flush: true })
     );
   };
 
@@ -8826,6 +8968,205 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       onClick: () => (x.reports ? NHR.open({ page: 'reports' }) : NHR.go({ page: 'docs', group: x.code })) })));
   };
 
+  /* Արձակուրդի ձևը (3.x, 4.x)։ ctx՝ { o, errs, warns, redraw, empPick, activeAt, group }։ Խմբային ձևում (group) աշխատանքային տարին և մնացորդը
+     որոշվում են ամեն աշխատակցի համար առանձին (NHR.docCheck) */
+  function leaveForm(d, ctx) {
+    const S = NHR.state(), f = d.fields, def = NHR.docDef(d.code), errs = ctx.errs, warns = ctx.warns, redraw = ctx.redraw, empPick = ctx.empPick, activeAt = ctx.activeAt;
+    let form;
+    const e = d.empId ? NHR.emp(d.empId) : null;
+    const p = e ? NHR.empPerson(e) : null;
+    const extra = def.extra || [];
+    /* 4.3՝ խնամողը լռելյայն՝ ըստ սեռի (մայր կամ հայր), խորթ ծնողի և խնամակալի դեպքում երեխաների ցանկում՝ նաև «Այլ» ազգակցական կապով անդամները */
+    if (extra.includes('carer') && !f.carer && p) f.carer = p.gender === '1' ? 'father' : 'mother';
+    const kids = p ? p.family.filter(x => ['5', '6'].concat(d.code === '4.3' && f.carer && !['mother', 'father'].includes(f.carer) ? ['9'] : []).includes(x.relation)) : [];
+    const annualLeave = d.code === '3.1', work = byWork(d), rest = leaveRest(d), pool = NHR.POOL_CODES.includes(d.code);
+    const v = e && pool && f.start ? NHR.vacation(e, f.start) : null;
+    /* Աշխատանքային տարին՝ լռելյայն այն, որում սկսվում է արձակուրդը (կարելի է ընտրել նախորդ տարիներից մեկը՝ չօգտագործված արձակուրդի համար) */
+    const refDate = [f.start, d.date, today()].find(Boolean);
+    const years = e && pool ? NHR.workYears(e, refDate > e.dateOn ? refDate : e.dateOn).slice(0, 4) : [];
+    if (years.length && (f.wyAuto !== false || !years.some(y => y.from === f.wy))) { f.wy = NHR.workYear(e, refDate > e.dateOn ? refDate : e.dateOn).from; f.wyAuto = true; }
+    const ret = f.end ? NHR.nextWorkDay(f.end, rest) : '', hol = work ? NHR.holidaysIn(f.start, f.end, rest) : [];
+    /* Երեխայի խնամքի (մինչև 3 տարեկանը, ՀՀ ԱՕ 173) և որդեգրման (մինչև նորածնի 70 կամ 110 օրականը, ՀՀ ԱՕ 172) արձակուրդների վերջին օրը */
+    const kidRow = p && f.child ? p.family.find(k => k.name === f.child) : null, kb = kidRow && kidRow.birthday;
+    const lastDay = kb && d.code === '4.3' ? NHR.addDays(NHR.addMonths(kb, 36), -1) : kb && d.code === '4.4' ? NHR.addDays(kb, (f.multiple ? 110 : 70) - 1) : '';
+    const limitBtn = lastDay ? h('div', { class: 'field' }, h('label', null, d.code === '4.3' ? 'Մինչև 3 տարեկանը' : `Մինչև ${f.multiple ? 110 : 70} օրականը`),
+      btn(`Ավարտ՝ ${NHR.fmtDate(lastDay)}`, () => { f.end = lastDay; recalcDays(d, 'end'); redraw(); }, 'sm')) : null;
+    const pay = f.start ? NHR.addDays(f.start, -3) : '';
+    const daysInp = h('input', { type: 'number', class: 'code', min: 1, step: 1, value: f.days === '' || f.days == null ? '' : String(f.days), 'data-fk': 'lv-days', 'aria-label': 'Օրերի քանակ',
+      oninput: (ev) => { f.days = ev.target.value === '' ? '' : Number(ev.target.value); }, onchange: () => { recalcDays(d, 'days'); NHR.rerenderKeep(); } });
+    const info = def.kind === 'leave' && f.start && f.end && f.end >= f.start ? kv([
+      work ? ['Օրացուցային օրեր', String(NHR.diffDays(f.start, f.end) + 1)] : null,
+      !pool ? ['Ամենամյա արձակուրդի մնացորդ', NHR.noAccrual(d) ? 'այս օրերին չի կուտակվում (ՀՀ ԱՕ 165)' : 'կուտակվում է, ինչպես աշխատանքային օրերին'] : null,
+      work ? ['Տոնական օրեր (չեն հաշվվում)', hol.length ? hol.map(x => NHR.fmtDate(x).slice(0, 5)).join(', ') : 'չկան'] : null,
+      annualLeave ? ['Արձակուրդայինը վճարել', `ոչ ուշ, քան ${NHR.fmtDate(pay)} (3 օր առաջ, ՀՀ ԱՕ 169)`] : null]) : null;
+    form = [panel('Արձակուրդ', h('div', { style: { display: 'grid', gap: '14px' } }, h('div', { class: 'form' },
+      empPick(activeAt(f.start)),
+      field('Սկիզբ', inp(f, 'start', { type: 'date', onChange: () => { recalcDays(d); redraw(); } }), { req: true }),
+      field(work ? 'Աշխատանքային օրեր' : 'Օրացուցային օրեր', daysInp, { req: true, hint: work ? 'Գրեք օրերը՝ ավարտը կհաշվվի ինքը' : null }),
+      field('Ավարտ (ներառյալ)', inp(f, 'end', { type: 'date', onChange: () => { recalcDays(d, 'end'); redraw(); } }), { req: true, hint: work ? 'Կամ գրեք ավարտը՝ օրերը կհաշվվեն' : null }),
+      def.kind === 'leave' ? field('Աշխատանքի ներկայանալ', h('input', { type: 'text', readonly: true, tabindex: -1, value: ret && f.end >= f.start ? `${NHR.fmtDate(ret)} (${NHR.weekdayName(ret)})` : '' }), { hint: 'Ավարտից հետո առաջին աշխատանքային օրը' }) : null,
+      def.kind === 'leave' ? field('Դիմումի ամսաթիվ', inp(f, 'appDate', { type: 'date', onChange: redraw })) : null,
+      field('Հրամանի ամսաթիվ', inp(d, 'date', { type: 'date', onChange: redraw }), { req: true }),
+      pool && years.length && !ctx.group ? field('Աշխատանքային տարի', sel(f, 'wy', years.map(y => [y.from, `${NHR.fmtDate(y.from)} – ${NHR.fmtDate(y.to)}`]), { empty: false, onChange: () => { f.wyAuto = false; redraw(); } }), { cls: 'w2', hint: 'Սկսվում է աշխատանքի անցնելու օրվանից (ՀՀ ԱՕ 164)' }) : null,
+      extra.includes('reason') ? field(def.code === '4.7' ? 'Տոնը կամ հիշատակի օրը' : 'Հիմքը', inp(f, 'reason', { ph: def.code === '4.7' ? 'օր.՝ Սուրբ Ծննդյան տոնի' : def.code === '4.9' ? 'օր.՝ ընտանեկան հանգամանքներով' : 'օր.՝ կոլեկտիվ պայմանագրի 5.2 կետ' }), { cls: 'w2', req: def.code === '4.7' }) : null,
+      extra.includes('studyKind') ? field('Ուսումնական արձակուրդի նպատակը (ՀՀ ԱՕ 174)', sel(f, 'studyKind', NHR.STUDY_KINDS.map(x => [x[0], x[1]]), { empty: 'Ընտրել', onChange: () => { recalcDays(d); redraw(); } }), { cls: 'w2', req: true,
+        hint: f.studyKind === 'abroad' ? 'Գործատուի համաձայնությամբ, ուսման ամբողջ ժամանակահատվածով, բայց ոչ ավելի, քան 2 տարի (ՀՀ ԱՕ 174, մաս 4)։ Օրերը՝ օրացուցային։' : null }) : null,
+      extra.includes('ground') ? field('Հիմքը (ՀՀ ԱՕ 176, մաս 1)', sel(f, 'ground', NHR.UNPAID_GROUNDS.map(x => [x[0], x[1]]), { empty: 'Ընտրել', onChange: () => { recalcDays(d); redraw(); } }), { cls: 'wall', req: true,
+        hint: (g => g ? `${g[3]} կետ․ ${g[5]}։ Օրերը՝ ${g[4] ? 'աշխատանքային' : 'օրացուցային'}։` : 'Ամուսնության, մահվան, տոների և հիվանդ հարազատի խնամքի համար՝ 4.5, 4.6, 4.7, 4.8 տեսակները')(NHR.UNPAID_GROUNDS.find(x => x[0] === f.ground)) }) : null,
+      extra.includes('studyKind') && ['admission', 'state'].includes(f.studyKind) ? field('Քննությունների քանակ', inp(f, 'exams', { type: 'number', min: 1, step: 1, onChange: redraw }), { hint: Number(f.exams) > 0 ? `Առավելագույնը՝ ${Number(f.exams) * NHR.STUDY_KINDS.find(x => x[0] === f.studyKind)[3]} աշխատանքային օր` : null }) : null,
+      extra.includes('institution') ? field('Ուսումնական հաստատություն', inp(f, 'institution', { ph: f.studyKind === 'abroad' ? 'օր.՝ Մյունխենի տեխնիկական համալսարան, Գերմանիա' : 'օր.՝ Երևանի պետական համալսարան' }), { cls: 'w2', req: true }) : null,
+      extra.includes('dutyKind') ? field('Պարտականությունը (ՀՀ ԱՕ 175)', sel(f, 'dutyKind', NHR.DUTY_KINDS.map(x => [x[0], x[1]]), { empty: 'Ընտրել', onChange: redraw }), { cls: 'w2', req: true }) : null,
+      extra.includes('duty') ? field(f.dutyKind === 'other' ? 'Պարտականությունը' : 'Մանրամասներ', inp(f, 'duty', { ph: 'օր.՝ ՀՀ քննչական կոմիտե, 12.10.2026 ծանուցում' }), { cls: 'w2', req: f.dutyKind === 'other' }) : null,
+      extra.includes('basisDoc') && (d.code !== '4.3' || !['mother', 'father'].includes(f.carer)) ? field('Կից փաստաթուղթ', inp(f, 'basisDoc', { ph: d.code === '3.3' ? (f.studyKind === 'abroad' ? 'օր.՝ համալսարանի 01.06.2026 ընդունելության նամակը' : 'օր.՝ ԵՊՀ-ի 01.06.2026 N 15 միջնորդագիրը')
+        : d.code === '4.3' ? (f.carer === 'guardian' ? 'օր.՝ խնամակալ նշանակելու մասին 05.03.2026 N 12 որոշումը' : 'օր.՝ ամուսնության վկայականի պատճենը')
+        : d.code === '4.10' ? (f.ground === 'husband' ? 'օր.՝ կնոջ մայրության արձակուրդի մասին տեղեկանքը' : f.ground === 'concurrent' ? 'օր.՝ հիմնական աշխատավայրի 12.10.2026 N 45 գործուղման հրամանի պատճենը' : 'օր.՝ ԲՍՓՀ եզրակացությունը')
+        : 'օր.՝ դատարանի 12.10.2026 ծանուցումը' }), { cls: 'w2', hint: 'Հայցական հոլովով՝ «հիմք ընդունելով … դիմումը և …»' }) : null,
+      extra.includes('birthKind') ? field('Ծննդաբերություն (ՀՀ ԱՕ 172)', sel(f, 'birthKind', NHR.BIRTH_KINDS.map(x => [x[0], x[1]]), { empty: 'Ընտրել', onChange: () => { const bk = NHR.BIRTH_KINDS.find(x => x[0] === f.birthKind); if (bk) { f.days = bk[2]; recalcDays(d, 'days'); } redraw(); } }), { cls: 'w2', req: true, hint: 'Օրերը լրացվում են ինքնաշխատ, օրացուցային' }) : null,
+      extra.includes('carer') ? field('Երեխային փաստացի խնամում է (ՀՀ ԱՕ 173)', sel(f, 'carer', NHR.CARERS.map(x => [x[0], x[1]]), { empty: false, onChange: () => { f.child = ''; redraw(); } }), { cls: 'w2', req: true,
+        hint: ['mother', 'father'].includes(f.carer) ? 'Մայրը կամ հայրը՝ ըստ փաստացի խնամքի' : 'Երեխան՝ քարտի «Ընտանիք» ներդիրից («Այլ» ազգակցական կապով)' }) : null,
+      extra.includes('child') ? field('Երեխա', kids.length ? sel(f, 'child', kids.map(k => [k.name, `${k.name} · ${NHR.fmtDate(k.birthday)}`]), { empty: 'Ընտրել', onChange: redraw }) : inp(f, 'child', { ph: 'Ընտանիքի տվյալներում երեխա չկա' }), { cls: 'w2', req: true, hint: 'Վերցվում է քարտի «Ընտանիք» ներդիրից (ծննդյան ամսաթվով)' }) : null,
+      extra.includes('multiple') ? h('div', { class: 'field' }, h('label', null, ' '), chk(f, 'multiple', 'Երկու և ավելի նորածին', { onChange: redraw })) : null,
+      limitBtn,
+      extra.includes('medcert') && (d.code !== '4.10' || f.ground === 'disabled') ? field(d.code === '4.2' ? 'Անաշխատունակության թերթիկի համար' : 'Բժշկական եզրակացության համար', inp(f, 'medcert', { ph: 'միայն համարը' }), { cls: 'w2', req: d.code === '4.2' }) : null,
+      extra.includes('eventDate') ? field(d.code === '4.4' ? 'Որդեգրման (խնամակալ նշանակելու) որոշման ամսաթիվ' : 'Ամուսնության գրանցման ամսաթիվ', inp(f, 'eventDate', { type: 'date', onChange: redraw })) : null,
+      extra.includes('relative') ? field('Ընտանիքի անդամ', p && p.family.length ? sel(f, 'relative', p.family.map(k => [k.name, `${k.name} (${NHR.refName('familyRelation', k.relation)})`]), { empty: 'Ընտրել' }) : inp(f, 'relative'), { cls: 'w2', req: true, hint: 'Վերցվում է քարտի «Ընտանիք» ներդիրից' }) : null,
+      extra.includes('paid') ? field(def.unpaid ? 'Վարձատրություն' : ' ', chk(f, 'paid', def.paidLabel || (def.unpaid ? 'Վճարովի (գործատուի որոշմամբ)' : 'Վճարովի'), { onChange: redraw }), { cls: def.paidLabel ? 'w2' : null, hint: def.unpaid ? (d.code === '3.3' ? 'Գործատուն վճարում է, եթե ինքն է ուղարկել սովորելու (ՀՀ ԱՕ 200)' : 'Օրենքով՝ առանց վարձատրության (ՀՀ ԱՕ 176)') : null }) : null), info)),
+    v && !ctx.group ? panel(annualLeave ? 'Ամենամյա արձակուրդի մնացորդ' : `Ամենամյա արձակուրդի մնացորդ (${d.code}-ը հաշվվում է նույն մնացորդից)`, h('div', { style: { display: 'grid', gap: '12px' } },
+      h('div', { class: 'stats' },
+        h('div', { class: 'st' }, h('b', null, NHR.fmtNum(v.balance, 2)), h('span', null, `մնացորդ ${NHR.fmtDate(f.start)}-ի դրությամբ`)),
+        h('div', { class: 'st' }, h('b', null, f.days || 0), h('span', null, 'այս արձակուրդը')),
+        h('div', { class: 'st' }, h('b', { style: { color: v.balance - (f.days || 0) < 0 ? 'var(--bad)' : null } }, NHR.fmtNum(v.balance - (f.days || 0), 2)), h('span', null, 'կմնա'))),
+      kv([['Տարեկան իրավունք', `${NHR.leaveEntText(v.ent)} աշխատանքային օր`],
+        v.base ? ['Մնացորդը ներդրման օրը', `${NHR.fmtNum(v.base, 2)} օր (${NHR.fmtDate(v.impl)})`] : null,
+        ['Կուտակված', v.formula],
+        v.excluded ? ['Չի ներառվում (ՀՀ ԱՕ 165)', `${v.excluded} օր՝ ${[...new Set(v.exDocs.map(x => x.code))].join(', ')} (առանց վարձատրության)`] : null,
+        ['Օգտագործված (3.1, 3.2, 4.1)', `${NHR.fmtNum(v.used, 0)} օր`]]),
+      e ? NHR.leavePosNote(e.orgId, NHR.terms(e, f.start).position, { onChange: redraw }) : null)) : null];
+    if (!d.empId) errs.push('Ընտրեք աշխատակցին');
+    if (!f.start || !f.end) errs.push('Լրացրեք սկիզբը և ավարտը (կամ օրերը)');
+    else if (f.end < f.start) errs.push('Ավարտը սկզբից շուտ է');
+    else if (!(Number(f.days) > 0)) errs.push('Ընտրված ժամանակահատվածում աշխատանքային օր չկա');
+    if (e && f.start) {
+      const ov = f.end ? NHR.periodOverlap(e.id, f.start, f.end, d.id) : null;
+      if (ov) errs.push(`Համընկնում է ${ov.code} (${NHR.docNumberText(ov)}) փաստաթղթի հետ`);
+      if (f.start < e.dateOn) errs.push(`Սկիզբը աշխատանքի ընդունման օրվանից (${NHR.fmtDate(e.dateOn)}) շուտ է`);
+      if (e.dateOff && f.end && f.end > e.dateOff) errs.push(`Ավարտը ազատման օրվանից (${NHR.fmtDate(e.dateOff)}) ուշ է`);
+      if (work && !NHR.isWorkDay(f.start, rest)) warns.push(`Սկիզբը ոչ աշխատանքային օր է (${NHR.weekdayName(f.start)}${NHR.isHoliday(f.start) ? ', տոն' : ''})`);
+      const tt = NHR.terms(e, f.start);
+      if (tt.term === '2' && tt.termEnd && f.end && f.end > tt.termEnd) warns.push(`Ավարտը պայմանագրի ժամկետից (${NHR.fmtDate(tt.termEnd)}) ուշ է`);
+    }
+    /* Պարտադիր տվյալներ՝ ըստ տեսակի (ձևանմուշում օգտագործվում են) */
+    if (extra.includes('studyKind') && !f.studyKind) errs.push('Ընտրեք ուսումնական արձակուրդի նպատակը');
+    if (extra.includes('institution') && !f.institution) errs.push('Լրացրեք ուսումնական հաստատությունը');
+    if (extra.includes('dutyKind') && (!f.dutyKind || (f.dutyKind === 'other' && !f.duty))) errs.push('Նշեք պետական կամ հասարակական պարտականությունը');
+    if (extra.includes('child') && !f.child) errs.push('Ընտրեք երեխային');
+    if (extra.includes('relative') && !f.relative) errs.push('Ընտրեք ընտանիքի անդամին');
+    if (d.code === '4.7' && !f.reason) errs.push('Նշեք տոնը կամ հիշատակի օրը');
+    if (d.code === '4.2' && !f.medcert) errs.push('Լրացրեք անաշխատունակության թերթիկի համարը');
+    if (d.code === '4.2' && !f.birthKind) errs.push('Ընտրեք ծննդաբերության տեսակը');
+    if (extra.includes('ground') && !f.ground) errs.push('Ընտրեք չվճարվող արձակուրդի հիմքը (ՀՀ ԱՕ 176)');
+    if (extra.includes('carer') && !f.carer) errs.push('Նշեք, թե ով է փաստացի խնամում երեխային');
+    if (d.code === '4.3' && f.carer === 'guardian' && !(f.basisDoc || '').trim()) warns.push('Նշեք խնամակալ նշանակելու մասին որոշումը («Կից փաստաթուղթ»)');
+    /* 3.3՝ արտասահմանում ուսանելը՝ ոչ ավելի, քան 2 տարի, 4.10՝ ըստ ՀՀ ԱՕ 176-րդ հոդվածի 1-ին մասի կետի */
+    if (e && f.start && f.end && f.end >= f.start) {
+      if (d.code === '3.3' && f.studyKind === 'abroad') { const lim = NHR.addDays(NHR.addMonths(f.start, 24), -1); if (f.end > lim) errs.push(`Արտասահմանում ուսանելու արձակուրդը՝ ոչ ավելի, քան 2 տարի՝ մինչև ${NHR.fmtDate(lim)} (ՀՀ ԱՕ 174, մաս 4)`); }
+      if (d.code === '4.10' && f.ground) {
+        const same = (from, to) => S.documents.filter(x => x.empId === e.id && x.code === '4.10' && x.status === 'approved' && x.id !== d.id && x.fields.ground === f.ground && x.fields.start >= from && x.fields.start <= to);
+        const sum = (arr) => arr.reduce((a, x) => a + (Number(x.fields.days) || 0), 0);
+        if (f.ground === 'husband') {
+          const lim = NHR.addDays(NHR.addMonths(f.start, 2), -1), prev = sum(same(NHR.addMonths(f.start, -24), f.start)), cap = NHR.diffDays(f.start, lim) + 1;
+          if (f.end > lim) errs.push(`Այս հիմքով արձակուրդի ընդհանուր տևողությունը՝ ոչ ավելի, քան 2 ամիս՝ մինչև ${NHR.fmtDate(lim)} (ՀՀ ԱՕ 176, մաս 1, կետ 1)`);
+          else if (prev && prev + Number(f.days) > cap) warns.push(`Այս հիմքով արդեն տրվել է ${prev} օր․ ընդհանուր տևողությունը՝ ոչ ավելի, քան 2 ամիս (ՀՀ ԱՕ 176, մաս 1, կետ 1)`);
+        }
+        if (f.ground === 'disabled') {
+          const y = f.start.slice(0, 4), prev = sum(same(y + '-01-01', y + '-12-31'));
+          if (prev + Number(f.days) > 30) warns.push(`${y} թվականին այս հիմքով՝ ոչ ավելի, քան 30 աշխատանքային օր (ՀՀ ԱՕ 176, մաս 1, կետ 2)${prev ? `․ արդեն տրված է ${prev} օր` : ''}`);
+          if (!(f.medcert || '').trim()) warns.push('Նշեք բժշկական եզրակացության համարը․ արձակուրդը տրվում է եզրակացությամբ սահմանված ժամկետում');
+        }
+        if (f.ground === 'concurrent') {
+          const wy = NHR.workYear(e, f.start), prev = sum(same(wy.from, wy.to));
+          if (prev + Number(f.days) > 30) warns.push(`Աշխատանքային տարում (${NHR.fmtDate(wy.from)} – ${NHR.fmtDate(wy.to)}) այս հիմքով՝ ոչ ավելի, քան 30 օր (ՀՀ ԱՕ 176, մաս 1, կետ 6)${prev ? `․ արդեն տրված է ${prev} օր` : ''}`);
+          if (NHR.terms(e, f.start).combination !== '2') warns.push('Աշխատակցի աշխատանքը նշված է որպես հիմնական․ այս հիմքը կիրառվում է համատեղությամբ աշխատողի համար');
+        }
+      }
+    }
+    /* Օրենքով սահմանված առավելագույն օրերը (հայրության՝ 5, ամուսնության և մահվան՝ 3 աշխատանքային օր, ՀՀ ԱՕ 176-ով՝ տարեկան սահմաններ) */
+    if (e && f.start && Number(f.days) > 0) {
+      if (def.maxDays && Number(f.days) > def.maxDays) warns.push(`${def.name}՝ օրենքով մինչև ${def.maxDays} ${work ? 'աշխատանքային ' : ''}օր, իսկ նշված է ${f.days}`);
+      if (def.maxPerYear) {
+        const yr = def.yearKind === 'work' ? NHR.workYear(e, f.start) : { from: f.start.slice(0, 4) + '-01-01', to: f.start.slice(0, 4) + '-12-31' };
+        const before = S.documents.filter(x => x.empId === e.id && x.code === d.code && x.status === 'approved' && x.id !== d.id && x.fields.start >= yr.from && x.fields.start <= yr.to).reduce((sum, x) => sum + (Number(x.fields.days) || 0), 0);
+        if (before + Number(f.days) > def.maxPerYear) warns.push(`${def.yearKind === 'work' ? 'Աշխատանքային տարում' : 'Տարեկան'}՝ ոչ ավելի, քան ${def.maxPerYear} ${work ? 'աշխատանքային ' : ''}օր (ՀՀ ԱՕ 176)։ ${def.yearKind === 'work' ? `${NHR.fmtDate(yr.from)} – ${NHR.fmtDate(yr.to)}` : yr.from.slice(0, 4) + ' թվականին'} արդեն տրված է ${before} օր, այս փաստաթղթով՝ ${f.days}`);
+      }
+      const sk = NHR.STUDY_KINDS.find(x => x[0] === f.studyKind);
+      if (sk && sk[3] && (f.studyKind === 'thesis' ? Number(f.days) > sk[3] : Number(f.exams) > 0 && Number(f.days) > sk[3] * Number(f.exams))) warns.push(`Ուսումնական արձակուրդ՝ ${f.studyKind === 'thesis' ? '' : `${f.exams} քննության համար `}մինչև ${f.studyKind === 'thesis' ? sk[3] : sk[3] * Number(f.exams)} աշխատանքային օր (ՀՀ ԱՕ 174)։ Ճանապարհի ժամանակը չի հաշվվում։`);
+      const bk = NHR.BIRTH_KINDS.find(x => x[0] === f.birthKind);
+      if (bk && Number(f.days) !== bk[2]) warns.push(`Հղիության և ծննդաբերության արձակուրդը՝ ${bk[2]} օրացուցային օր (ՀՀ ԱՕ 172), իսկ նշված է ${f.days}`);
+      if (lastDay && f.end > lastDay) warns.push(d.code === '4.3' ? `Խնամքի արձակուրդը տրվում է մինչև երեխայի 3 տարեկանը՝ մինչև ${NHR.fmtDate(lastDay)} (ՀՀ ԱՕ 173)` : `Որդեգրման արձակուրդը տրվում է մինչև նորածնի ${f.multiple ? 110 : 70} օրականը՝ մինչև ${NHR.fmtDate(lastDay)} (ՀՀ ԱՕ 172)`);
+      if (extra.includes('child') && f.child && !kb) warns.push('Երեխայի ծննդյան ամսաթիվը չկա․ լրացրեք քարտի «Ընտանիք» ներդիրում, որ այն երևա փաստաթղթում');
+      if (d.code === '4.4' && !f.eventDate) warns.push('Լրացրեք որդեգրման (խնամակալ նշանակելու) որոշման ամսաթիվը');
+      if (d.code === '4.5' && !f.eventDate) warns.push('Լրացրեք ամուսնության գրանցման ամսաթիվը');
+      if (d.code === '4.8' && !f.medcert) warns.push('Լրացրեք բժշկական եզրակացության համարը');
+      if (d.code === '3.5' && f.child && p) {
+        const kid = p.family.find(k => k.name === f.child);
+        if (kid && kid.birthday && f.start > NHR.addDays(kid.birthday, 30)) warns.push(`Հայրության արձակուրդը տրվում է երեխայի ծնվելուց հետո 30 օրվա ընթացքում՝ մինչև ${NHR.fmtDate(NHR.addDays(kid.birthday, 30))}`);
+      }
+      /* 4.1 և 3.2՝ պաշտոնը պետք է կապված լինի համապատասխան ցանկին */
+      if (v && d.code === '4.1' && !v.ent.ext) warns.push(`Պաշտոնը կապված չէ երկարացված արձակուրդի ցանկին (ՀՀ կառավարության N 1599-Ն որոշում)։ Ստուգեք «Տեղեկատուներ → Պաշտոններ»-ում։`);
+      if (v && d.code === '3.2' && !v.ent.add && !f.reason) warns.push(`Պաշտոնը կապված չէ լրացուցիչ արձակուրդի ցանկին (ՀՀ կառավարության N 1384-Ն որոշում)։ Նշեք հիմքը (օր.՝ կոլեկտիվ պայմանագիր) կամ կապեք պաշտոնը ցանկին։`);
+      if (v && !annualLeave && Number(f.days) > v.balance) warns.push(`Օրերը (${f.days}) գերազանցում են ամենամյա արձակուրդի մնացորդը (${NHR.fmtNum(v.balance, 2)})`);
+    }
+    /* Ամենամյա արձակուրդի ստուգումներ (ՀՀ ԱՕ 163, 164, 169)․ զգուշացումներ, որոնք չեն արգելում հաստատել */
+    if (annualLeave && e && f.start && Number(f.days) > 0) {
+      const six = NHR.addMonths(e.dateOn, 6);
+      if (f.start < six) warns.push(`Աշխատանքի առաջին տարում ամենամյա արձակուրդը տրվում է 6 ամիսն անընդհատ աշխատելուց հետո՝ ${NHR.fmtDate(six)}-ից (ՀՀ ԱՕ 164)։ Ավելի շուտ՝ կողմերի համաձայնությամբ կամ օրենքով նախատեսված դեպքերում։`);
+      if (v && Number(f.days) > v.balance) warns.push(`Օրերը (${f.days}) գերազանցում են մնացորդը (${NHR.fmtNum(v.balance, 2)})`);
+      const minPart = NHR.terms(e, f.start).workWeek === '6' ? 12 : 10;
+      if (Number(f.days) < minPart) {
+        const wy = NHR.workYear(e, f.start);
+        const big = S.documents.some(x => x.empId === e.id && NHR.POOL_CODES.includes(x.code) && x.status === 'approved' && x.id !== d.id && x.fields.start >= wy.from && x.fields.start <= wy.to && Number(x.fields.days) >= minPart);
+        if (!big) warns.push(`Արձակուրդը մասերով տրամադրելիս մասերից մեկը պետք է լինի առնվազն ${minPart} աշխատանքային օր (ՀՀ ԱՕ 163)։ Այս աշխատանքային տարում նման մաս դեռ չկա՝ հաշվի առեք հաջորդ մասերը պլանավորելիս։`);
+      }
+      if (d.date && pay && d.date > pay) warns.push(`Արձակուրդայինը պետք է վճարվի ոչ ուշ, քան ${NHR.fmtDate(pay)}՝ արձակուրդից 3 օր առաջ (ՀՀ ԱՕ 169), իսկ հրամանի ամսաթիվն ավելի ուշ է։ Ուշացման դեպքում արձակուրդը երկարաձգվում է ուշացման օրերով։`);
+      if (f.appDate && d.date && f.appDate > d.date) warns.push('Դիմումի ամսաթիվը հրամանից ուշ է');
+    }
+    return { form, side: [] };
+  }
+
+  /* ---------- Խմբային փաստաթղթեր (աշխատակիցների ցուցակից) ----------
+     Նույն տվյալները լրացվում են մեկ անգամ, և ամեն նշված աշխատակցի համար կազմվում է առանձին փաստաթուղթ՝ իր համարով։
+     Աշխատակցից կախված տվյալները (աշխատանքային տարի, օրեր, պայմանագիր, աշխատավարձ, ազատման օր) որոշվում են ամեն մեկի համար առանձին */
+  NHR.GROUP_CODES = ['3.1', '3.2', '4.1', '4.7', '4.9', '4.10', '5.1', '5.2', '6.1', '7.1', '7.2', '7.4', '7.5'];
+  const activeAtFn = (dt) => (e) => e.contractType === '1' && NHR.isActive(e, dt || today());
+  function groupDraft(t, eid, amt) {
+    const x = JSON.parse(JSON.stringify(t)), f = x.fields, def = NHR.docDef(x.code);
+    x.empId = eid; x.id = ''; x.numbers = {};
+    if (def.kind === 'leave') { f.wyAuto = true; f.wy = ''; recalcDays(x); }
+    if (def.kind === 'dismiss') delete f._emp;
+    if (def.kind === 'change') {
+      delete f._emp; f.mode = ''; f.contractDocId = ''; f.contractNum = ''; f.contractDate = ''; f.clauses = [];
+      if ((f.changes || []).includes('amount')) { const v = amt && amt[eid]; f.amount = v !== undefined && v !== '' && v !== null ? Number(v) : (Number(NHR.terms(NHR.emp(eid), f.effective || today()).amount) || ''); }
+    }
+    return x;
+  }
+  /* Փաստաթղթի ստուգումը՝ առանց էջի (խմբային ձև, մատյանից խմբային հաստատում)՝ նույն կանոններով, ինչ փաստաթղթի ձևում։
+     Ձևը լրացնում է նաև լռելյայն տվյալները (օր.՝ աշխատանքային տարին, չօգտագործված արձակուրդը) */
+  NHR.docCheck = (d, opts) => {
+    const def = NHR.docDef(d.code), o = NHR.org(d.orgId), errs = [], warns = [];
+    const ctx = { o, errs, warns, redraw: () => {}, empPick: () => null, activeAt: activeAtFn, recalcDays, group: !!(opts && opts.group) };
+    try {
+      if (!def || !o) errs.push('Փաստաթուղթը կամ կազմակերպությունը չի գտնվել');
+      else if (def.kind === 'leave') leaveForm(d, ctx);
+      else if (def.kind === 'trip') NHR.tripForm(d, ctx);
+      else if (def.kind === 'change') NHR.changeForm(d, ctx);
+      else if (def.kind === 'dismiss') NHR.dismissForm(d, ctx);
+      else if (def.kind === 'act') NHR.actForm(d, { o, errs, redraw: ctx.redraw });
+      else if (def.kind === 'civilChange') NHR.civilChangeForm(d, ctx);
+      else errs.push('Այս փաստաթուղթը հաստատվում է իր էջից');
+    } catch (e) { errs.push('Ստուգել չհաջողվեց․ ' + e.message); }
+    return { errs, warns };
+  };
+
   NHR.views.newdoc = function (r) {
     const S = NHR.state(), o = NHR.curOrg();
     nts = NHR.tabState(); nd = nts.nd || null; ndKey = nts.ndKey || '';
@@ -8835,187 +9176,42 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
     if (kd.kind === 'provider') return NHR.views.register({ kind: 'prov' });
     if (kd.kind === 'badge') return NHR.views.badge({ ids: r.empId ? [r.empId] : [] });
     if ((kd.kind === 'hire' || kd.kind === 'civil') && !r.docId) return NHR.views.contract({ code: r.code, empId: r.empId });
-    const key = JSON.stringify([r.code, r.empId, r.docId, r.contractDocId, r.baseId, o.id]);
+    /* Խմբային՝ r.ids (նշված աշխատակիցները). փաստաթղթի օրինակը կազմվում է առաջին աշխատակցով */
+    const grp = Array.isArray(r.ids) && r.ids.length && !r.docId && NHR.GROUP_CODES.includes(r.code) ? r.ids.filter(id => { const e = NHR.emp(id); return e && e.orgId === o.id; }) : null;
+    if (grp && !grp.length) return h('div', { class: 'note' }, h('div', null, 'Նշված աշխատակիցները այս կազմակերպությունում չեն։ Ընտրեք նրանց «Աշխատակիցներ» ցուցակում։'));
+    const key = JSON.stringify([r.code, r.empId, r.docId, r.contractDocId, r.baseId, o.id, grp]);
     if (ndKey !== key) {
       if (r.docId) { const ex = S.documents.find(x => x.id === r.docId); nd = JSON.parse(JSON.stringify(ex)); }
-      else nd = freshDraft(r);
-      ndKey = key; nts.nd = nd; nts.ndKey = key;
+      else nd = freshDraft(grp ? Object.assign({}, r, { empId: grp[0] }) : r);
+      ndKey = key; nts.nd = nd; nts.ndKey = key; nts.grpOff = new Set(); nts.grpAmt = {};
     }
     const d = nd, f = d.fields, def = NHR.docDef(d.code);
     const redraw = () => NHR.rerender();
-    const empPick = (filterFn) => {
+    const empPick = grp ? () => field(`Աշխատակիցներ (${grp.length})`, h('div', { class: 'grp-names' }, grp.map(id => NHR.fullName(NHR.empPerson(NHR.emp(id)))).join(', ')),
+      { cls: 'wall', hint: 'Տվյալները լրացրեք մեկ անգամ․ ամեն աշխատակցի ստուգումը՝ «Աշխատակիցներ» բաժնում' }) : (filterFn) => {
       const list = S.employments.filter(e => e.orgId === o.id && filterFn(e)).sort((a, b) => NHR.fullName(NHR.empPerson(a)).localeCompare(NHR.fullName(NHR.empPerson(b)), 'hy'));
       return field('Աշխատակից', sel(d, 'empId', list.map(e => [e.id, `${e.tabel} — ${NHR.fullName(NHR.empPerson(e))}`]), { empty: 'Ընտրել', onChange: () => { if (def.kind === 'leave' || def.kind === 'trip') { f.wyAuto = true; if (def.kind === 'leave') { f.carer = ''; f.child = ''; } recalcDays(d); } redraw(); } }), { req: true, cls: 'w2' });
     };
-    const activeAt = (dt) => (e) => e.contractType === '1' && NHR.isActive(e, dt || today());
+    const activeAt = activeAtFn;
     const errs = [], warns = [];
     let form, side = [];
 
     if (def.kind === 'act') { const res = NHR.actForm(d, { o, errs, redraw }); form = res.form; side = res.side; }
-    else if (def.kind === 'trip') { const res = NHR.tripForm(d, { o, errs, warns, redraw, empPick, activeAt, recalcDays }); form = res.form; side = res.side; }
-    else if (def.kind === 'leave') {
-      const e = d.empId ? NHR.emp(d.empId) : null;
-      const p = e ? NHR.empPerson(e) : null;
-      const extra = def.extra || [];
-      /* 4.3՝ խնամողը լռելյայն՝ ըստ սեռի (մայր կամ հայր), խորթ ծնողի և խնամակալի դեպքում երեխաների ցանկում՝ նաև «Այլ» ազգակցական կապով անդամները */
-      if (extra.includes('carer') && !f.carer && p) f.carer = p.gender === '1' ? 'father' : 'mother';
-      const kids = p ? p.family.filter(x => ['5', '6'].concat(d.code === '4.3' && f.carer && !['mother', 'father'].includes(f.carer) ? ['9'] : []).includes(x.relation)) : [];
-      const annualLeave = d.code === '3.1', work = byWork(d), rest = leaveRest(d), pool = NHR.POOL_CODES.includes(d.code);
-      const v = e && pool && f.start ? NHR.vacation(e, f.start) : null;
-      /* Աշխատանքային տարին՝ լռելյայն այն, որում սկսվում է արձակուրդը (կարելի է ընտրել նախորդ տարիներից մեկը՝ չօգտագործված արձակուրդի համար) */
-      const refDate = [f.start, d.date, today()].find(Boolean);
-      const years = e && pool ? NHR.workYears(e, refDate > e.dateOn ? refDate : e.dateOn).slice(0, 4) : [];
-      if (years.length && (f.wyAuto !== false || !years.some(y => y.from === f.wy))) { f.wy = NHR.workYear(e, refDate > e.dateOn ? refDate : e.dateOn).from; f.wyAuto = true; }
-      const ret = f.end ? NHR.nextWorkDay(f.end, rest) : '', hol = work ? NHR.holidaysIn(f.start, f.end, rest) : [];
-      /* Երեխայի խնամքի (մինչև 3 տարեկանը, ՀՀ ԱՕ 173) և որդեգրման (մինչև նորածնի 70 կամ 110 օրականը, ՀՀ ԱՕ 172) արձակուրդների վերջին օրը */
-      const kidRow = p && f.child ? p.family.find(k => k.name === f.child) : null, kb = kidRow && kidRow.birthday;
-      const lastDay = kb && d.code === '4.3' ? NHR.addDays(NHR.addMonths(kb, 36), -1) : kb && d.code === '4.4' ? NHR.addDays(kb, (f.multiple ? 110 : 70) - 1) : '';
-      const limitBtn = lastDay ? h('div', { class: 'field' }, h('label', null, d.code === '4.3' ? 'Մինչև 3 տարեկանը' : `Մինչև ${f.multiple ? 110 : 70} օրականը`),
-        btn(`Ավարտ՝ ${NHR.fmtDate(lastDay)}`, () => { f.end = lastDay; recalcDays(d, 'end'); redraw(); }, 'sm')) : null;
-      const pay = f.start ? NHR.addDays(f.start, -3) : '';
-      const daysInp = h('input', { type: 'number', class: 'code', min: 1, step: 1, value: f.days === '' || f.days == null ? '' : String(f.days), 'data-fk': 'lv-days', 'aria-label': 'Օրերի քանակ',
-        oninput: (ev) => { f.days = ev.target.value === '' ? '' : Number(ev.target.value); }, onchange: () => { recalcDays(d, 'days'); NHR.rerenderKeep(); } });
-      const info = def.kind === 'leave' && f.start && f.end && f.end >= f.start ? kv([
-        work ? ['Օրացուցային օրեր', String(NHR.diffDays(f.start, f.end) + 1)] : null,
-        !pool ? ['Ամենամյա արձակուրդի մնացորդ', NHR.noAccrual(d) ? 'այս օրերին չի կուտակվում (ՀՀ ԱՕ 165)' : 'կուտակվում է, ինչպես աշխատանքային օրերին'] : null,
-        work ? ['Տոնական օրեր (չեն հաշվվում)', hol.length ? hol.map(x => NHR.fmtDate(x).slice(0, 5)).join(', ') : 'չկան'] : null,
-        annualLeave ? ['Արձակուրդայինը վճարել', `ոչ ուշ, քան ${NHR.fmtDate(pay)} (3 օր առաջ, ՀՀ ԱՕ 169)`] : null]) : null;
-      form = [panel('Արձակուրդ', h('div', { style: { display: 'grid', gap: '14px' } }, h('div', { class: 'form' },
-        empPick(activeAt(f.start)),
-        field('Սկիզբ', inp(f, 'start', { type: 'date', onChange: () => { recalcDays(d); redraw(); } }), { req: true }),
-        field(work ? 'Աշխատանքային օրեր' : 'Օրացուցային օրեր', daysInp, { req: true, hint: work ? 'Գրեք օրերը՝ ավարտը կհաշվվի ինքը' : null }),
-        field('Ավարտ (ներառյալ)', inp(f, 'end', { type: 'date', onChange: () => { recalcDays(d, 'end'); redraw(); } }), { req: true, hint: work ? 'Կամ գրեք ավարտը՝ օրերը կհաշվվեն' : null }),
-        def.kind === 'leave' ? field('Աշխատանքի ներկայանալ', h('input', { type: 'text', readonly: true, tabindex: -1, value: ret && f.end >= f.start ? `${NHR.fmtDate(ret)} (${NHR.weekdayName(ret)})` : '' }), { hint: 'Ավարտից հետո առաջին աշխատանքային օրը' }) : null,
-        def.kind === 'leave' ? field('Դիմումի ամսաթիվ', inp(f, 'appDate', { type: 'date', onChange: redraw })) : null,
-        field('Հրամանի ամսաթիվ', inp(d, 'date', { type: 'date', onChange: redraw }), { req: true }),
-        pool && years.length ? field('Աշխատանքային տարի', sel(f, 'wy', years.map(y => [y.from, `${NHR.fmtDate(y.from)} – ${NHR.fmtDate(y.to)}`]), { empty: false, onChange: () => { f.wyAuto = false; redraw(); } }), { cls: 'w2', hint: 'Սկսվում է աշխատանքի անցնելու օրվանից (ՀՀ ԱՕ 164)' }) : null,
-        extra.includes('reason') ? field(def.code === '4.7' ? 'Տոնը կամ հիշատակի օրը' : 'Հիմքը', inp(f, 'reason', { ph: def.code === '4.7' ? 'օր.՝ Սուրբ Ծննդյան տոնի' : def.code === '4.9' ? 'օր.՝ ընտանեկան հանգամանքներով' : 'օր.՝ կոլեկտիվ պայմանագրի 5.2 կետ' }), { cls: 'w2', req: def.code === '4.7' }) : null,
-        extra.includes('studyKind') ? field('Ուսումնական արձակուրդի նպատակը (ՀՀ ԱՕ 174)', sel(f, 'studyKind', NHR.STUDY_KINDS.map(x => [x[0], x[1]]), { empty: 'Ընտրել', onChange: () => { recalcDays(d); redraw(); } }), { cls: 'w2', req: true,
-          hint: f.studyKind === 'abroad' ? 'Գործատուի համաձայնությամբ, ուսման ամբողջ ժամանակահատվածով, բայց ոչ ավելի, քան 2 տարի (ՀՀ ԱՕ 174, մաս 4)։ Օրերը՝ օրացուցային։' : null }) : null,
-        extra.includes('ground') ? field('Հիմքը (ՀՀ ԱՕ 176, մաս 1)', sel(f, 'ground', NHR.UNPAID_GROUNDS.map(x => [x[0], x[1]]), { empty: 'Ընտրել', onChange: () => { recalcDays(d); redraw(); } }), { cls: 'wall', req: true,
-          hint: (g => g ? `${g[3]} կետ․ ${g[5]}։ Օրերը՝ ${g[4] ? 'աշխատանքային' : 'օրացուցային'}։` : 'Ամուսնության, մահվան, տոների և հիվանդ հարազատի խնամքի համար՝ 4.5, 4.6, 4.7, 4.8 տեսակները')(NHR.UNPAID_GROUNDS.find(x => x[0] === f.ground)) }) : null,
-        extra.includes('studyKind') && ['admission', 'state'].includes(f.studyKind) ? field('Քննությունների քանակ', inp(f, 'exams', { type: 'number', min: 1, step: 1, onChange: redraw }), { hint: Number(f.exams) > 0 ? `Առավելագույնը՝ ${Number(f.exams) * NHR.STUDY_KINDS.find(x => x[0] === f.studyKind)[3]} աշխատանքային օր` : null }) : null,
-        extra.includes('institution') ? field('Ուսումնական հաստատություն', inp(f, 'institution', { ph: f.studyKind === 'abroad' ? 'օր.՝ Մյունխենի տեխնիկական համալսարան, Գերմանիա' : 'օր.՝ Երևանի պետական համալսարան' }), { cls: 'w2', req: true }) : null,
-        extra.includes('dutyKind') ? field('Պարտականությունը (ՀՀ ԱՕ 175)', sel(f, 'dutyKind', NHR.DUTY_KINDS.map(x => [x[0], x[1]]), { empty: 'Ընտրել', onChange: redraw }), { cls: 'w2', req: true }) : null,
-        extra.includes('duty') ? field(f.dutyKind === 'other' ? 'Պարտականությունը' : 'Մանրամասներ', inp(f, 'duty', { ph: 'օր.՝ ՀՀ քննչական կոմիտե, 12.10.2026 ծանուցում' }), { cls: 'w2', req: f.dutyKind === 'other' }) : null,
-        extra.includes('basisDoc') && (d.code !== '4.3' || !['mother', 'father'].includes(f.carer)) ? field('Կից փաստաթուղթ', inp(f, 'basisDoc', { ph: d.code === '3.3' ? (f.studyKind === 'abroad' ? 'օր.՝ համալսարանի 01.06.2026 ընդունելության նամակը' : 'օր.՝ ԵՊՀ-ի 01.06.2026 N 15 միջնորդագիրը')
-          : d.code === '4.3' ? (f.carer === 'guardian' ? 'օր.՝ խնամակալ նշանակելու մասին 05.03.2026 N 12 որոշումը' : 'օր.՝ ամուսնության վկայականի պատճենը')
-          : d.code === '4.10' ? (f.ground === 'husband' ? 'օր.՝ կնոջ մայրության արձակուրդի մասին տեղեկանքը' : f.ground === 'concurrent' ? 'օր.՝ հիմնական աշխատավայրի 12.10.2026 N 45 գործուղման հրամանի պատճենը' : 'օր.՝ ԲՍՓՀ եզրակացությունը')
-          : 'օր.՝ դատարանի 12.10.2026 ծանուցումը' }), { cls: 'w2', hint: 'Հայցական հոլովով՝ «հիմք ընդունելով … դիմումը և …»' }) : null,
-        extra.includes('birthKind') ? field('Ծննդաբերություն (ՀՀ ԱՕ 172)', sel(f, 'birthKind', NHR.BIRTH_KINDS.map(x => [x[0], x[1]]), { empty: 'Ընտրել', onChange: () => { const bk = NHR.BIRTH_KINDS.find(x => x[0] === f.birthKind); if (bk) { f.days = bk[2]; recalcDays(d, 'days'); } redraw(); } }), { cls: 'w2', req: true, hint: 'Օրերը լրացվում են ինքնաշխատ, օրացուցային' }) : null,
-        extra.includes('carer') ? field('Երեխային փաստացի խնամում է (ՀՀ ԱՕ 173)', sel(f, 'carer', NHR.CARERS.map(x => [x[0], x[1]]), { empty: false, onChange: () => { f.child = ''; redraw(); } }), { cls: 'w2', req: true,
-          hint: ['mother', 'father'].includes(f.carer) ? 'Մայրը կամ հայրը՝ ըստ փաստացի խնամքի' : 'Երեխան՝ քարտի «Ընտանիք» ներդիրից («Այլ» ազգակցական կապով)' }) : null,
-        extra.includes('child') ? field('Երեխա', kids.length ? sel(f, 'child', kids.map(k => [k.name, `${k.name} · ${NHR.fmtDate(k.birthday)}`]), { empty: 'Ընտրել', onChange: redraw }) : inp(f, 'child', { ph: 'Ընտանիքի տվյալներում երեխա չկա' }), { cls: 'w2', req: true, hint: 'Վերցվում է քարտի «Ընտանիք» ներդիրից (ծննդյան ամսաթվով)' }) : null,
-        extra.includes('multiple') ? h('div', { class: 'field' }, h('label', null, ' '), chk(f, 'multiple', 'Երկու և ավելի նորածին', { onChange: redraw })) : null,
-        limitBtn,
-        extra.includes('medcert') && (d.code !== '4.10' || f.ground === 'disabled') ? field(d.code === '4.2' ? 'Անաշխատունակության թերթիկի համար' : 'Բժշկական եզրակացության համար', inp(f, 'medcert', { ph: 'միայն համարը' }), { cls: 'w2', req: d.code === '4.2' }) : null,
-        extra.includes('eventDate') ? field(d.code === '4.4' ? 'Որդեգրման (խնամակալ նշանակելու) որոշման ամսաթիվ' : 'Ամուսնության գրանցման ամսաթիվ', inp(f, 'eventDate', { type: 'date', onChange: redraw })) : null,
-        extra.includes('relative') ? field('Ընտանիքի անդամ', p && p.family.length ? sel(f, 'relative', p.family.map(k => [k.name, `${k.name} (${NHR.refName('familyRelation', k.relation)})`]), { empty: 'Ընտրել' }) : inp(f, 'relative'), { cls: 'w2', req: true, hint: 'Վերցվում է քարտի «Ընտանիք» ներդիրից' }) : null,
-        extra.includes('paid') ? field(def.unpaid ? 'Վարձատրություն' : ' ', chk(f, 'paid', def.paidLabel || (def.unpaid ? 'Վճարովի (գործատուի որոշմամբ)' : 'Վճարովի'), { onChange: redraw }), { cls: def.paidLabel ? 'w2' : null, hint: def.unpaid ? (d.code === '3.3' ? 'Գործատուն վճարում է, եթե ինքն է ուղարկել սովորելու (ՀՀ ԱՕ 200)' : 'Օրենքով՝ առանց վարձատրության (ՀՀ ԱՕ 176)') : null }) : null), info)),
-      v ? panel(annualLeave ? 'Ամենամյա արձակուրդի մնացորդ' : `Ամենամյա արձակուրդի մնացորդ (${d.code}-ը հաշվվում է նույն մնացորդից)`, h('div', { style: { display: 'grid', gap: '12px' } },
-        h('div', { class: 'stats' },
-          h('div', { class: 'st' }, h('b', null, NHR.fmtNum(v.balance, 2)), h('span', null, `մնացորդ ${NHR.fmtDate(f.start)}-ի դրությամբ`)),
-          h('div', { class: 'st' }, h('b', null, f.days || 0), h('span', null, 'այս արձակուրդը')),
-          h('div', { class: 'st' }, h('b', { style: { color: v.balance - (f.days || 0) < 0 ? 'var(--bad)' : null } }, NHR.fmtNum(v.balance - (f.days || 0), 2)), h('span', null, 'կմնա'))),
-        kv([['Տարեկան իրավունք', `${NHR.leaveEntText(v.ent)} աշխատանքային օր`],
-          v.base ? ['Մնացորդը ներդրման օրը', `${NHR.fmtNum(v.base, 2)} օր (${NHR.fmtDate(v.impl)})`] : null,
-          ['Կուտակված', v.formula],
-          v.excluded ? ['Չի ներառվում (ՀՀ ԱՕ 165)', `${v.excluded} օր՝ ${[...new Set(v.exDocs.map(x => x.code))].join(', ')} (առանց վարձատրության)`] : null,
-          ['Օգտագործված (3.1, 3.2, 4.1)', `${NHR.fmtNum(v.used, 0)} օր`]]),
-        e ? NHR.leavePosNote(e.orgId, NHR.terms(e, f.start).position, { onChange: redraw }) : null)) : null];
-      if (!d.empId) errs.push('Ընտրեք աշխատակցին');
-      if (!f.start || !f.end) errs.push('Լրացրեք սկիզբը և ավարտը (կամ օրերը)');
-      else if (f.end < f.start) errs.push('Ավարտը սկզբից շուտ է');
-      else if (!(Number(f.days) > 0)) errs.push('Ընտրված ժամանակահատվածում աշխատանքային օր չկա');
-      if (e && f.start) {
-        const ov = f.end ? NHR.periodOverlap(e.id, f.start, f.end, d.id) : null;
-        if (ov) errs.push(`Համընկնում է ${ov.code} (${NHR.docNumberText(ov)}) փաստաթղթի հետ`);
-        if (f.start < e.dateOn) errs.push(`Սկիզբը աշխատանքի ընդունման օրվանից (${NHR.fmtDate(e.dateOn)}) շուտ է`);
-        if (e.dateOff && f.end && f.end > e.dateOff) errs.push(`Ավարտը ազատման օրվանից (${NHR.fmtDate(e.dateOff)}) ուշ է`);
-        if (work && !NHR.isWorkDay(f.start, rest)) warns.push(`Սկիզբը ոչ աշխատանքային օր է (${NHR.weekdayName(f.start)}${NHR.isHoliday(f.start) ? ', տոն' : ''})`);
-        const tt = NHR.terms(e, f.start);
-        if (tt.term === '2' && tt.termEnd && f.end && f.end > tt.termEnd) warns.push(`Ավարտը պայմանագրի ժամկետից (${NHR.fmtDate(tt.termEnd)}) ուշ է`);
-      }
-      /* Պարտադիր տվյալներ՝ ըստ տեսակի (ձևանմուշում օգտագործվում են) */
-      if (extra.includes('studyKind') && !f.studyKind) errs.push('Ընտրեք ուսումնական արձակուրդի նպատակը');
-      if (extra.includes('institution') && !f.institution) errs.push('Լրացրեք ուսումնական հաստատությունը');
-      if (extra.includes('dutyKind') && (!f.dutyKind || (f.dutyKind === 'other' && !f.duty))) errs.push('Նշեք պետական կամ հասարակական պարտականությունը');
-      if (extra.includes('child') && !f.child) errs.push('Ընտրեք երեխային');
-      if (extra.includes('relative') && !f.relative) errs.push('Ընտրեք ընտանիքի անդամին');
-      if (d.code === '4.7' && !f.reason) errs.push('Նշեք տոնը կամ հիշատակի օրը');
-      if (d.code === '4.2' && !f.medcert) errs.push('Լրացրեք անաշխատունակության թերթիկի համարը');
-      if (d.code === '4.2' && !f.birthKind) errs.push('Ընտրեք ծննդաբերության տեսակը');
-      if (extra.includes('ground') && !f.ground) errs.push('Ընտրեք չվճարվող արձակուրդի հիմքը (ՀՀ ԱՕ 176)');
-      if (extra.includes('carer') && !f.carer) errs.push('Նշեք, թե ով է փաստացի խնամում երեխային');
-      if (d.code === '4.3' && f.carer === 'guardian' && !(f.basisDoc || '').trim()) warns.push('Նշեք խնամակալ նշանակելու մասին որոշումը («Կից փաստաթուղթ»)');
-      /* 3.3՝ արտասահմանում ուսանելը՝ ոչ ավելի, քան 2 տարի, 4.10՝ ըստ ՀՀ ԱՕ 176-րդ հոդվածի 1-ին մասի կետի */
-      if (e && f.start && f.end && f.end >= f.start) {
-        if (d.code === '3.3' && f.studyKind === 'abroad') { const lim = NHR.addDays(NHR.addMonths(f.start, 24), -1); if (f.end > lim) errs.push(`Արտասահմանում ուսանելու արձակուրդը՝ ոչ ավելի, քան 2 տարի՝ մինչև ${NHR.fmtDate(lim)} (ՀՀ ԱՕ 174, մաս 4)`); }
-        if (d.code === '4.10' && f.ground) {
-          const same = (from, to) => S.documents.filter(x => x.empId === e.id && x.code === '4.10' && x.status === 'approved' && x.id !== d.id && x.fields.ground === f.ground && x.fields.start >= from && x.fields.start <= to);
-          const sum = (arr) => arr.reduce((a, x) => a + (Number(x.fields.days) || 0), 0);
-          if (f.ground === 'husband') {
-            const lim = NHR.addDays(NHR.addMonths(f.start, 2), -1), prev = sum(same(NHR.addMonths(f.start, -24), f.start)), cap = NHR.diffDays(f.start, lim) + 1;
-            if (f.end > lim) errs.push(`Այս հիմքով արձակուրդի ընդհանուր տևողությունը՝ ոչ ավելի, քան 2 ամիս՝ մինչև ${NHR.fmtDate(lim)} (ՀՀ ԱՕ 176, մաս 1, կետ 1)`);
-            else if (prev && prev + Number(f.days) > cap) warns.push(`Այս հիմքով արդեն տրվել է ${prev} օր․ ընդհանուր տևողությունը՝ ոչ ավելի, քան 2 ամիս (ՀՀ ԱՕ 176, մաս 1, կետ 1)`);
-          }
-          if (f.ground === 'disabled') {
-            const y = f.start.slice(0, 4), prev = sum(same(y + '-01-01', y + '-12-31'));
-            if (prev + Number(f.days) > 30) warns.push(`${y} թվականին այս հիմքով՝ ոչ ավելի, քան 30 աշխատանքային օր (ՀՀ ԱՕ 176, մաս 1, կետ 2)${prev ? `․ արդեն տրված է ${prev} օր` : ''}`);
-            if (!(f.medcert || '').trim()) warns.push('Նշեք բժշկական եզրակացության համարը․ արձակուրդը տրվում է եզրակացությամբ սահմանված ժամկետում');
-          }
-          if (f.ground === 'concurrent') {
-            const wy = NHR.workYear(e, f.start), prev = sum(same(wy.from, wy.to));
-            if (prev + Number(f.days) > 30) warns.push(`Աշխատանքային տարում (${NHR.fmtDate(wy.from)} – ${NHR.fmtDate(wy.to)}) այս հիմքով՝ ոչ ավելի, քան 30 օր (ՀՀ ԱՕ 176, մաս 1, կետ 6)${prev ? `․ արդեն տրված է ${prev} օր` : ''}`);
-            if (NHR.terms(e, f.start).combination !== '2') warns.push('Աշխատակցի աշխատանքը նշված է որպես հիմնական․ այս հիմքը կիրառվում է համատեղությամբ աշխատողի համար');
-          }
-        }
-      }
-      /* Օրենքով սահմանված առավելագույն օրերը (հայրության՝ 5, ամուսնության և մահվան՝ 3 աշխատանքային օր, ՀՀ ԱՕ 176-ով՝ տարեկան սահմաններ) */
-      if (e && f.start && Number(f.days) > 0) {
-        if (def.maxDays && Number(f.days) > def.maxDays) warns.push(`${def.name}՝ օրենքով մինչև ${def.maxDays} ${work ? 'աշխատանքային ' : ''}օր, իսկ նշված է ${f.days}`);
-        if (def.maxPerYear) {
-          const yr = def.yearKind === 'work' ? NHR.workYear(e, f.start) : { from: f.start.slice(0, 4) + '-01-01', to: f.start.slice(0, 4) + '-12-31' };
-          const before = S.documents.filter(x => x.empId === e.id && x.code === d.code && x.status === 'approved' && x.id !== d.id && x.fields.start >= yr.from && x.fields.start <= yr.to).reduce((sum, x) => sum + (Number(x.fields.days) || 0), 0);
-          if (before + Number(f.days) > def.maxPerYear) warns.push(`${def.yearKind === 'work' ? 'Աշխատանքային տարում' : 'Տարեկան'}՝ ոչ ավելի, քան ${def.maxPerYear} ${work ? 'աշխատանքային ' : ''}օր (ՀՀ ԱՕ 176)։ ${def.yearKind === 'work' ? `${NHR.fmtDate(yr.from)} – ${NHR.fmtDate(yr.to)}` : yr.from.slice(0, 4) + ' թվականին'} արդեն տրված է ${before} օր, այս փաստաթղթով՝ ${f.days}`);
-        }
-        const sk = NHR.STUDY_KINDS.find(x => x[0] === f.studyKind);
-        if (sk && sk[3] && (f.studyKind === 'thesis' ? Number(f.days) > sk[3] : Number(f.exams) > 0 && Number(f.days) > sk[3] * Number(f.exams))) warns.push(`Ուսումնական արձակուրդ՝ ${f.studyKind === 'thesis' ? '' : `${f.exams} քննության համար `}մինչև ${f.studyKind === 'thesis' ? sk[3] : sk[3] * Number(f.exams)} աշխատանքային օր (ՀՀ ԱՕ 174)։ Ճանապարհի ժամանակը չի հաշվվում։`);
-        const bk = NHR.BIRTH_KINDS.find(x => x[0] === f.birthKind);
-        if (bk && Number(f.days) !== bk[2]) warns.push(`Հղիության և ծննդաբերության արձակուրդը՝ ${bk[2]} օրացուցային օր (ՀՀ ԱՕ 172), իսկ նշված է ${f.days}`);
-        if (lastDay && f.end > lastDay) warns.push(d.code === '4.3' ? `Խնամքի արձակուրդը տրվում է մինչև երեխայի 3 տարեկանը՝ մինչև ${NHR.fmtDate(lastDay)} (ՀՀ ԱՕ 173)` : `Որդեգրման արձակուրդը տրվում է մինչև նորածնի ${f.multiple ? 110 : 70} օրականը՝ մինչև ${NHR.fmtDate(lastDay)} (ՀՀ ԱՕ 172)`);
-        if (extra.includes('child') && f.child && !kb) warns.push('Երեխայի ծննդյան ամսաթիվը չկա․ լրացրեք քարտի «Ընտանիք» ներդիրում, որ այն երևա փաստաթղթում');
-        if (d.code === '4.4' && !f.eventDate) warns.push('Լրացրեք որդեգրման (խնամակալ նշանակելու) որոշման ամսաթիվը');
-        if (d.code === '4.5' && !f.eventDate) warns.push('Լրացրեք ամուսնության գրանցման ամսաթիվը');
-        if (d.code === '4.8' && !f.medcert) warns.push('Լրացրեք բժշկական եզրակացության համարը');
-        if (d.code === '3.5' && f.child && p) {
-          const kid = p.family.find(k => k.name === f.child);
-          if (kid && kid.birthday && f.start > NHR.addDays(kid.birthday, 30)) warns.push(`Հայրության արձակուրդը տրվում է երեխայի ծնվելուց հետո 30 օրվա ընթացքում՝ մինչև ${NHR.fmtDate(NHR.addDays(kid.birthday, 30))}`);
-        }
-        /* 4.1 և 3.2՝ պաշտոնը պետք է կապված լինի համապատասխան ցանկին */
-        if (v && d.code === '4.1' && !v.ent.ext) warns.push(`Պաշտոնը կապված չէ երկարացված արձակուրդի ցանկին (ՀՀ կառավարության N 1599-Ն որոշում)։ Ստուգեք «Տեղեկատուներ → Պաշտոններ»-ում։`);
-        if (v && d.code === '3.2' && !v.ent.add && !f.reason) warns.push(`Պաշտոնը կապված չէ լրացուցիչ արձակուրդի ցանկին (ՀՀ կառավարության N 1384-Ն որոշում)։ Նշեք հիմքը (օր.՝ կոլեկտիվ պայմանագիր) կամ կապեք պաշտոնը ցանկին։`);
-        if (v && !annualLeave && Number(f.days) > v.balance) warns.push(`Օրերը (${f.days}) գերազանցում են ամենամյա արձակուրդի մնացորդը (${NHR.fmtNum(v.balance, 2)})`);
-      }
-      /* Ամենամյա արձակուրդի ստուգումներ (ՀՀ ԱՕ 163, 164, 169)․ զգուշացումներ, որոնք չեն արգելում հաստատել */
-      if (annualLeave && e && f.start && Number(f.days) > 0) {
-        const six = NHR.addMonths(e.dateOn, 6);
-        if (f.start < six) warns.push(`Աշխատանքի առաջին տարում ամենամյա արձակուրդը տրվում է 6 ամիսն անընդհատ աշխատելուց հետո՝ ${NHR.fmtDate(six)}-ից (ՀՀ ԱՕ 164)։ Ավելի շուտ՝ կողմերի համաձայնությամբ կամ օրենքով նախատեսված դեպքերում։`);
-        if (v && Number(f.days) > v.balance) warns.push(`Օրերը (${f.days}) գերազանցում են մնացորդը (${NHR.fmtNum(v.balance, 2)})`);
-        const minPart = NHR.terms(e, f.start).workWeek === '6' ? 12 : 10;
-        if (Number(f.days) < minPart) {
-          const wy = NHR.workYear(e, f.start);
-          const big = S.documents.some(x => x.empId === e.id && NHR.POOL_CODES.includes(x.code) && x.status === 'approved' && x.id !== d.id && x.fields.start >= wy.from && x.fields.start <= wy.to && Number(x.fields.days) >= minPart);
-          if (!big) warns.push(`Արձակուրդը մասերով տրամադրելիս մասերից մեկը պետք է լինի առնվազն ${minPart} աշխատանքային օր (ՀՀ ԱՕ 163)։ Այս աշխատանքային տարում նման մաս դեռ չկա՝ հաշվի առեք հաջորդ մասերը պլանավորելիս։`);
-        }
-        if (d.date && pay && d.date > pay) warns.push(`Արձակուրդայինը պետք է վճարվի ոչ ուշ, քան ${NHR.fmtDate(pay)}՝ արձակուրդից 3 օր առաջ (ՀՀ ԱՕ 169), իսկ հրամանի ամսաթիվն ավելի ուշ է։ Ուշացման դեպքում արձակուրդը երկարաձգվում է ուշացման օրերով։`);
-        if (f.appDate && d.date && f.appDate > d.date) warns.push('Դիմումի ամսաթիվը հրամանից ուշ է');
-      }
-    }
+    else if (def.kind === 'trip') { const res = NHR.tripForm(d, { o, errs, warns, redraw, empPick, activeAt, recalcDays, group: !!grp }); form = res.form; side = res.side; }
+    else if (def.kind === 'leave') { const res = leaveForm(d, { o, errs, warns, redraw, empPick, activeAt, group: !!grp }); form = res.form; side = res.side; }
     /* 6.1 և 6.2՝ agr.js (պայմանագրի կետերը, քարտի պայմանները, ծանուցում) */
-    else if (def.kind === 'change') { const res = NHR.changeForm(d, { o, errs, warns, redraw, empPick, activeAt }); form = res.form; side = res.side; }
+    else if (def.kind === 'change') { const res = NHR.changeForm(d, { o, errs, warns, redraw, empPick, activeAt, group: !!grp }); form = res.form; side = res.side; }
     else if (def.kind === 'civilChange') { const res = NHR.civilChangeForm(d, { o, errs, warns, redraw }); form = res.form; side = res.side; }
-    else if (def.kind === 'dismiss') { const res = NHR.dismissForm(d, { o, errs, warns, redraw, empPick }); form = res.form; side = res.side; }
+    else if (def.kind === 'dismiss') { const res = NHR.dismissForm(d, { o, errs, warns, redraw, empPick, group: !!grp }); form = res.form; side = res.side; }
+
+    /* Խմբային. ամեն աշխատակցի սևագիրը և ստուգումը. ընդհանուր սխալները (բոլորի մոտ նույնը)՝ առանձին */
+    let gr = null, common = [], ready = [], picked = [];
+    const gOff = nts.grpOff instanceof Set ? nts.grpOff : (nts.grpOff = new Set()), gAmt = nts.grpAmt || (nts.grpAmt = {});
+    if (grp) {
+      gr = grp.map(id => { const e = NHR.emp(id), x = groupDraft(d, id, gAmt), c = NHR.docCheck(x, { group: true }); return { e, x, errs: c.errs, warns: c.warns, on: !gOff.has(id) }; });
+      common = gr[0].errs.filter(m => gr.every(g => g.errs.includes(m)));
+      picked = gr.filter(g => g.on); ready = picked.filter(g => !g.errs.length);
+    }
 
     const nums = previewNumbers(d);
     const tpl = NHR.tplFor(d.code, d.date || today());
@@ -9043,22 +9239,91 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       }, 'stamp');
     };
 
+    /* Խմբային. սևագրեր (բոլոր նշվածների համար) կամ հաստատում (սխալներ չունեցողների համար)՝ տաբելային համարների հերթականությամբ */
+    const byTabel = (a, b) => String(a.e.tabel).localeCompare(String(b.e.tabel));
+    const groupDone = (docs, msg) => {
+      nts.ndKey = ''; if (NHR.clearSelection) NHR.clearSelection();
+      NHR.toast(msg); NHR.go({ page: 'documents' });
+      if (docs.length && (def.kind === 'change' || def.kind === 'dismiss')) setTimeout(() => NHR.sendModal(docs), 0);
+    };
+    const saveGroup = () => {
+      if (!picked.length) { NHR.toast('Նշեք գոնե մեկ աշխատակից'); return; }
+      const now = new Date().toISOString();
+      const docs = picked.slice().sort(byTabel).map(g => { const x = g.x; NHR.assignOut(x); x.id = NHR.uid('D'); x.createdAt = now; S.documents.push(x); return x; });
+      NHR.save(); groupDone([], `Պահպանվեց ${docs.length} սևագիր`);
+    };
+    const approveGroup = () => {
+      if (!ready.length) return;
+      const skip = gr.length - ready.length;
+      NHR.confirm('Հաստատել փաստաթղթերը', h('div', { style: { display: 'grid', gap: '8px' } },
+        h('div', null, `Կհաստատվի ${ready.length} փաստաթուղթ՝ ամեն աշխատակցի համար առանձին, հերթական համարներով։ Հաստատելուց հետո փաստաթղթերը չեն փոխվում։`),
+        skip ? h('div', { class: 'muted' }, `${skip} աշխատակցի համար փաստաթուղթ չի կազմվի (նշված չեն կամ ունեն սխալներ)։`) : null), 'Հաստատել', () => {
+        const now = new Date().toISOString();
+        const docs = ready.slice().sort(byTabel).map(g => { const x = g.x; x.id = NHR.uid('D'); x.createdAt = now; S.documents.push(x); return x; });
+        docs.forEach(x => NHR.approve(x));
+        groupDone(docs, `Հաստատվեց ${docs.length} փաստաթուղթ`);
+      }, 'stamp');
+    };
+    const grpPanel = gr ? (() => {
+      const all = gr.every(g => g.on);
+      const flip = (id, on) => { if (on) gOff.delete(id); else gOff.add(id); NHR.rerenderKeep(); };
+      const amtOn = def.kind === 'change' && (f.changes || []).includes('amount');
+      const pct = nts.grpPct = nts.grpPct || { v: '' };
+      const curAmt = (e) => Number(NHR.terms(e, f.effective || today()).amount) || 0;
+      const detail = (g) => {
+        const xf = g.x.fields;
+        if (def.kind === 'leave') return xf.start && xf.end && Number(xf.days) > 0 ? `${xf.days} օր · ${NHR.fmtDate(xf.start)} – ${NHR.fmtDate(xf.end)}` : '—';
+        if (def.kind === 'trip') return xf.start && xf.end ? `${NHR.fmtDate(xf.start)} – ${NHR.fmtDate(xf.end)}` : '—';
+        if (def.kind === 'dismiss') return xf.dateOff ? `Վերջին օրը՝ ${NHR.fmtDate(xf.dateOff)}${xf.unusedDays !== '' && xf.unusedDays != null ? ` · չօգտագործված արձակուրդ՝ ${NHR.fmtQty ? NHR.fmtQty(xf.unusedDays) : xf.unusedDays} օր` : ''}` : '—';
+        if (def.kind === 'change') return NHR.agrSummary ? (NHR.agrSummary(g.x) || '—') : '—';
+        return '—';
+      };
+      const stat = (g) => {
+        const own = g.errs.filter(m => !common.includes(m));
+        if (own.length) return h('div', { class: 'grp-st bad' }, own.map(m => h('div', null, m)));
+        if (g.errs.length) return h('span', { class: 'muted small' }, 'Լրացրեք ընդհանուր տվյալները');
+        if (g.warns.length) return h('div', { class: 'grp-st warn' }, h('div', null, 'Պատրաստ է, ուշադրություն՝'), g.warns.slice(0, 3).map(m => h('div', null, '• ' + m)), g.warns.length > 3 ? h('div', null, `… ևս ${g.warns.length - 3}`) : null);
+        return NHR.chip('Պատրաստ է', 'ok');
+      };
+      return panel(`Աշխատակիցներ (${gr.length})`, h('div', { style: { display: 'grid', gap: '10px' } },
+        h('div', { class: 'muted small' }, 'Ամեն աշխատակցի համար կկազմվի առանձին փաստաթուղթ։ Հանեք նշումը, եթե որևէ մեկին պետք չէ ներառել։'
+          + (def.kind === 'change' ? ' Եթե աշխատակցի պայմանագիրը թղթային է (կազմված չէ ծրագրում), փոփոխությունը համաձայնագրում կգրվի առանձին դրույթով՝ առանց կետի համարի։' : '')),
+        amtOn ? h('div', { class: 'row', style: { gap: '8px', alignItems: 'center' } },
+          h('span', { class: 'small' }, 'Բոլորի աշխատավարձը բարձրացնել'),
+          h('input', { type: 'number', class: 'code', step: '0.1', value: pct.v, style: { width: '90px' }, 'aria-label': 'Տոկոս', oninput: (ev) => { pct.v = ev.target.value; } }), h('span', null, '%-ով'),
+          btn('Կիրառել', () => { const k = Number(pct.v); if (!k) { NHR.toast('Գրեք տոկոսը'); return; } gr.forEach(g => { const c = curAmt(g.e); if (c) gAmt[g.e.id] = Math.round(c * (1 + k / 100)); }); NHR.rerender(); }, 'sm')) : null,
+        NHR.table([
+          { th: h('input', { type: 'checkbox', checked: all, 'aria-label': 'Ընտրել բոլորը', onchange: (ev) => { gr.forEach(g => { if (ev.target.checked) gOff.delete(g.e.id); else gOff.add(g.e.id); }); NHR.rerenderKeep(); } }), cls: 'cb',
+            get: g => h('input', { type: 'checkbox', checked: g.on, 'aria-label': 'Ներառել', onchange: (ev) => flip(g.e.id, ev.target.checked) }) },
+          { th: 'Աշխատակից', get: g => h('div', null, h('b', null, NHR.fullName(NHR.empPerson(g.e))), h('span', { class: 'sub' }, `տաբ. N ${g.e.tabel}${g.e.contractType === '1' ? ` · ${NHR.orefName(o.id, 'positions', NHR.terms(g.e, today()).position) || ''}` : ' · քաղ.-իրավական'}`)) },
+          amtOn ? { th: 'Աշխատավարձ (ներկայիս → նոր)', cls: 'nw', get: g => h('div', { class: 'row', style: { gap: '6px', flexWrap: 'nowrap', alignItems: 'center' } },
+            h('span', { class: 'code small muted' }, NHR.fmtMoney ? NHR.fmtMoney(curAmt(g.e)) : curAmt(g.e)), '→',
+            h('input', { type: 'number', class: 'code', min: 0, step: 1, value: g.x.fields.amount === '' ? '' : String(g.x.fields.amount), style: { width: '120px' }, 'aria-label': 'Նոր աշխատավարձ', 'data-fk': 'grp-amt-' + g.e.id,
+              onchange: (ev) => { gAmt[g.e.id] = ev.target.value === '' ? '' : Number(ev.target.value); NHR.rerenderKeep(); } })) } : { th: 'Տվյալներ', get: g => h('span', { class: 'small' }, detail(g)) },
+          { th: 'Ստուգում', get: g => g.on ? stat(g) : h('span', { class: 'muted small' }, 'Չի ներառվում') }
+        ].filter(Boolean), gr, { rowCls: g => g.on ? '' : 'dim' })));
+    })() : null;
+
     return h('div', { style: { display: 'contents' } },
-      h('div', null, btn(r.docId ? 'Սևագիր' : 'Փոխել տեսակը', () => { nts.ndKey = ''; NHR.go(r.docId ? { page: 'doc', id: r.docId } : { page: 'docs', group: r.code.split('.')[0] }); }, 'ghost sm', 'back')),
-      pageHead(h('span', null, h('span', { class: 'tag', style: { fontSize: '14px', verticalAlign: 'middle' } }, d.code), ' ', def.name), NHR.orgName(o),
-        [btn('Պահպանել սևագիր', saveDraft), h('button', { class: 'btn stamp', disabled: errs.length ? true : null, title: errs.join('\n') || null, onclick: approve }, NHR.icon('stamp'), 'Հաստատել')]),
+      h('div', null, grp ? btn('Աշխատակիցներ', () => { nts.ndKey = ''; NHR.go({ page: 'employees' }); }, 'ghost sm', 'back')
+        : btn(r.docId ? 'Սևագիր' : 'Փոխել տեսակը', () => { nts.ndKey = ''; NHR.go(r.docId ? { page: 'doc', id: r.docId } : { page: 'docs', group: r.code.split('.')[0] }); }, 'ghost sm', 'back')),
+      pageHead(h('span', null, h('span', { class: 'tag', style: { fontSize: '14px', verticalAlign: 'middle' } }, d.code), ' ', def.name), grp ? `${NHR.orgName(o)} · խմբային՝ ${grp.length} աշխատակից` : NHR.orgName(o),
+        grp ? [btn(`Պահպանել սևագրեր (${picked.length})`, saveGroup), h('button', { class: 'btn stamp', disabled: ready.length ? null : true, title: ready.length ? null : 'Չկա աշխատակից, որի փաստաթուղթը պատրաստ է', onclick: approveGroup }, NHR.icon('stamp'), `Հաստատել (${ready.length})`)]
+          : [btn('Պահպանել սևագիր', saveDraft), h('button', { class: 'btn stamp', disabled: errs.length ? true : null, title: errs.join('\n') || null, onclick: approve }, NHR.icon('stamp'), 'Հաստատել')]),
       h('div', { class: 'split side-r' },
-        h('div', { style: { display: 'grid', gap: '16px', minWidth: 0 } }, form,
-          warns.length ? h('div', { class: 'note info' }, NHR.icon('warn'), h('div', { style: { display: 'grid', gap: '6px' } }, h('b', null, 'Ուշադրություն (հաստատելը չի արգելվում)'), warns.map(x => h('div', null, '• ' + x)))) : null),
+        h('div', { style: { display: 'grid', gap: '16px', minWidth: 0 } }, form, grpPanel,
+          warns.length && !grp ? h('div', { class: 'note info' }, NHR.icon('warn'), h('div', { style: { display: 'grid', gap: '6px' } }, h('b', null, 'Ուշադրություն (հաստատելը չի արգելվում)'), warns.map(x => h('div', null, '• ' + x)))) : null),
         h('div', { style: { display: 'grid', gap: '16px', position: 'sticky', top: '64px' } },
+          grp ? panel('Համարներ', h('div', { class: 'muted' }, `Ամեն աշխատակցի համար՝ առանձին փաստաթուղթ։ Համարները կտրվեն հաստատելիս՝ հերթով${nums.length && nums[0][1] ? ` (առաջինը՝ ${nums[0][1]})` : ''}։`)) :
           panel('Համարներ', nums.length ? h('div', { style: { display: 'grid', gap: '10px' } }, nums.map(([k, v, hint]) => h('div', null, h('div', { class: 'muted small' }, k), h('div', { class: 'code', style: { fontSize: '16px' } }, v), hint ? h('div', { class: 'small', style: { color: hint.startsWith('Հետին') ? 'var(--warn)' : 'var(--muted)' } }, hint) : null)))
             : h('div', { class: 'muted' }, def.kind === 'provider' ? 'Փաստաթուղթ չի կազմվում, տրվում է տաբելային համար' : 'Ընտրեք ամսաթիվը')),
-          side,
+          grp ? null : side,
           panel('Ձևանմուշ', h('div', { style: { display: 'grid', gap: '8px' } },
             tpl ? h('div', null, h('b', null, tpl.v), ` · գործում է ${NHR.fmtDate(tpl.from)}-ից`) : h('div', { class: 'muted' }, 'Ձևանմուշը դեռ բեռնված չէ'),
             agr.map(a => h('div', { class: 'note stamp' }, h('div', null, `Կկազմվի ${def.code.startsWith('2') ? '6.2' : '6.1'} համաձայնագիր ${NHR.fmtDate(a.from)} ամսաթվով (${a.v})`))))),
           panel('Կազմվող փաստաթղթեր', h('ul', { class: 'list-plain' }, NHR.docPack(def, o, d).map(x => h('li', null, x)).concat(def.basis && def.basis.length ? [h('li', { class: 'muted' }, `Հիմքի տվյալներ՝ ${def.basis.join(', ')}`)] : []))),
-          errs.length ? h('div', { class: 'note warn' }, h('div', null, errs.map(x => h('div', null, x)))) : null))
+          grp ? (common.length ? h('div', { class: 'note warn' }, h('div', null, common.map(x => h('div', null, x)))) : null)
+            : errs.length ? h('div', { class: 'note warn' }, h('div', null, errs.map(x => h('div', null, x)))) : null))
     );
   };
 
@@ -10070,6 +10335,37 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
     const OL = { departments: ['Ստորաբաժանում', 'ստորաբաժանումը'], positions: ['Պաշտոն', 'պաշտոնը'], feeTypes: ['Հավելման տեսակ', 'հավելման տեսակը'] };
     const use = NHR.orefUsage(o.id);
     const useCell = (k) => (r) => { const u = NHR.useOf(use, k, r.code); return u.total ? h('span', { class: 'small' }, NHR.useText(u)) : h('span', { class: 'muted small' }, 'չի օգտագործվում'); };
+    /* Խմբային ընտրություն՝ ընթացիկ ցանկում (ներդիրի վիճակում. ցանկը կամ կազմակերպությունը փոխելիս՝ մաքրվում է) */
+    const rts = NHR.tabState('refs'), pickKey = refSel + '|' + o.id;
+    if (rts.pickKey !== pickKey || !(rts.picked instanceof Set)) { rts.pickKey = pickKey; rts.picked = new Set(); }
+    const picked = rts.picked;
+    const cbCol = (rows, keyOf) => ro ? null : {
+      th: h('input', { type: 'checkbox', 'aria-label': 'Ընտրել բոլորը', checked: rows.length > 0 && rows.every(r => picked.has(keyOf(r))),
+        onchange: (ev) => { rows.forEach(r => { if (ev.target.checked) picked.add(keyOf(r)); else picked.delete(keyOf(r)); }); NHR.rerender(); } }),
+      cls: 'cb', get: r => h('input', { type: 'checkbox', checked: picked.has(keyOf(r)), 'aria-label': 'Ընտրել', onclick: (ev) => ev.stopPropagation(),
+        onchange: (ev) => { if (ev.target.checked) picked.add(keyOf(r)); else picked.delete(keyOf(r)); NHR.rerender(); } })
+    };
+    const bulkBar = (n, onDel) => ro || !n ? null : h('div', { class: 'bulkbar' },
+      h('button', { class: 'btn sm danger', type: 'button', onclick: onDel }, NHR.icon('trash'), `Ջնջել նշվածները (${n})`),
+      h('span', { class: 'cnt-sel' }, 'Ընտրված է ', h('b', null, n)),
+      h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { picked.clear(); NHR.rerender(); } }, 'Մաքրել ընտրությունը'));
+    /* Ջնջում (մեկ կամ մի քանի տող). չօգտագործվողները ջնջվում են, օգտագործվողները՝ ոչ («Ակտիվ» ունեցող ցանկերում դրանք կարելի է անջատել) */
+    const delPicked = (title, sel, isUsed, label, doDel, canOff) => {
+      const free = sel.filter(r => !isUsed(r)), used = sel.filter(isUsed), x = { off: true };
+      const names = (arr) => arr.slice(0, 12).map(label).join(', ') + (arr.length > 12 ? ` և ևս ${arr.length - 12}` : '');
+      const offOk = canOff && used.some(r => r.active !== false);
+      NHR.modal({ title, body: h('div', { style: { display: 'grid', gap: '10px' } },
+          free.length ? h('div', null, h('b', null, `Կջնջվի՝ ${free.length}`), h('div', { class: 'muted small' }, names(free))) : null,
+          used.length ? h('div', { class: 'note info' }, NHR.icon('warn'), h('div', null, h('b', null, `Օգտագործվում է և չի ջնջվի՝ ${used.length}`), h('div', { class: 'small' }, names(used)))) : null,
+          offOk ? chk(x, 'off', 'Օգտագործվողներին անջատել (այլևս չեն առաջարկվի նոր փաստաթղթերում)') : null),
+        actions: [{ label: free.length || offOk ? 'Չեղարկել' : 'Փակել' }, free.length || offOk ? { label: free.length ? `Ջնջել (${free.length})` : 'Անջատել', cls: 'danger', onClick: () => {
+          doDel(free);
+          let off = 0;
+          if (offOk && x.off) used.forEach(r => { if (r.active !== false) { r.active = false; off++; } });
+          picked.clear(); NHR.save(); NHR.rerender();
+          NHR.toast([free.length ? `Ջնջվեց՝ ${free.length}` : '', off ? `անջատվեց՝ ${off}` : ''].filter(Boolean).join(', ') || 'Փոփոխություն չկա');
+        } } : null].filter(Boolean) });
+    };
     /* ՀԾ-ից ներմուծման համապատասխանեցումները (importMaps)՝ հին կոդից նորին կամ ջնջված կոդից հանել */
     const remap = (k, from, to) => {
       const m = ((S.importMaps || {})[o.id] || {})['org:' + k];
@@ -10093,6 +10389,21 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
         remap(k, r.code, '');
         NHR.save(); NHR.rerender(); NHR.toast('Ջնջվեց');
       }, 'danger');
+    };
+    /* Պաշտոնի անվանումը փոխվեց (օր.՝ տառասխալ)՝ նկարագրերը (կապված են պաշտոնի անվանմամբ) անցնում են նոր անվանմանը,
+       եթե հին անվանմամբ պաշտոն այլևս չկա ոչ մի կազմակերպությունում (գրադարանը ընդհանուր է) */
+    const renameDescs = (from, to) => {
+      if (!from || !to || from === to || descLimited()) return;
+      if (Object.keys(S.orgRefs || {}).some(k => ((S.orgRefs[k] || {}).positions || []).some(p => p.name === from))) return;
+      S.posDescriptions.forEach(d => { if (d.position === from) d.position = to; });
+    };
+    /* Ոչ բոլոր կազմակերպությունները տեսնող օգտատերը (սերվերով) չի տեսնում, թե ուրիշ որտեղ են օգտագործվում նկարագրերը */
+    function descLimited() { return !!NHR.serverMode && !NHR.allOrgsOf(NHR.user()); }
+    const PL = { departments: 'ստորաբաժանումները', positions: 'պաշտոնները', feeTypes: 'հավելումների տեսակները' };
+    const delOrgMany = (k) => {
+      const rows = S.orgRefs[o.id][k];
+      delPicked(`Ջնջել նշված ${PL[k]}`, rows.filter(r => picked.has(r.code)), r => NHR.useOf(use, k, r.code).total > 0, r => `${r.code} — ${r.name}`,
+        (free) => free.forEach(r => { const i = rows.indexOf(r); if (i >= 0) rows.splice(i, 1); remap(k, r.code, ''); }), true);
     };
     /* Կոդի և անվանման ստուգում. x՝ նոր տարբերակը, r՝ ցանկում եղածը */
     const okRow = (k, r, x) => {
@@ -10152,7 +10463,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
             rows.forEach(r => {
               if (r.state === 'new') R[r.k].push(Object.assign({ code: r.x.code, name: r.x.name, hc: r.x.code, active: true },
                 r.k === 'positions' ? { conditions: [], benefits: [] } : {}, r.k === 'feeTypes' ? { tabel: r.x.tabel || '01' } : {}));
-              else if (r.state === 'changed' && st.upd) r.cur.name = r.x.name;
+              else if (r.state === 'changed' && st.upd) { const was = r.cur.name; r.cur.name = r.x.name; if (r.k === 'positions') renameDescs(was, r.x.name); }
             });
             const msg = [nNew ? `ավելացավ ${nNew} տող` : '', nCh && st.upd ? `փոխվեց ${nCh} անվանում` : ''].filter(Boolean).join(', ');
             NHR.save(); NHR.rerender(); NHR.toast(msg.charAt(0).toUpperCase() + msg.slice(1));
@@ -10192,13 +10503,14 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
         { actions: ro || L.closed ? null : btn('Նոր տող', () => addRowModal(L.rows, refSel === 'communes' ? { region: '' } : null), 'sm', 'plus') });
     } else if (refSel === 'org:departments' || refSel === 'org:feeTypes') {
       const k = refSel.slice(4), rows = S.orgRefs[o.id][k];
-      right = panel(refSel === 'org:departments' ? 'Ստորաբաժանումներ' : 'Հավելումների տեսակներ', table([
+      right = panel(refSel === 'org:departments' ? 'Ստորաբաժանումներ' : 'Հավելումների տեսակներ', [bulkBar(rows.filter(r => picked.has(r.code)).length, () => delOrgMany(k)), table([
+        cbCol(rows, r => r.code),
         { th: 'Կոդ', cls: 'code', get: r => r.code }, { th: 'Անվանում', get: r => r.name },
         k === 'feeTypes' ? { th: 'Տաբելի կոդ', cls: 'code', get: r => r.tabel || '—' } : null,
         k === 'feeTypes' ? { th: 'Աշխատավարձի ձև', get: r => NHR.salaryForm(o.id, r.code) } : null,
         { th: 'Օգտագործվում է', get: useCell(k) },
         { th: 'Ակտիվ', get: r => activeToggle(r) },
-        ro ? null : { th: '', get: r => rowActs(k, r, (y) => editRow(k, y)) }].filter(Boolean), rows, { empty: 'Ցանկը դատարկ է․ ներմուծեք ՀԾ-ից', onRow: (r) => editRow(k, r) }),
+        ro ? null : { th: '', get: r => rowActs(k, r, (y) => editRow(k, y)) }].filter(Boolean), rows, { empty: 'Ցանկը դատարկ է․ ներմուծեք ՀԾ-ից', onRow: (r) => editRow(k, r) })],
         { flush: true, actions: ro ? null : h('span', { class: 'row', style: { gap: '6px' } }, btn('Ներմուծել ՀԾ-ից', importLists, 'sm', 'import'), btn('Նոր տող', () => addRowModal(rows, k === 'feeTypes' ? { tabel: '01' } : null), 'sm', 'plus')) });
     } else if (refSel === 'org:positions') {
       const rows = S.orgRefs[o.id].positions;
@@ -10235,7 +10547,7 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
               ro ? null : btn('Ընտրել', () => { if (hh.list === 'extLeave') x.leaveExt = hh.row.code; else { x.leaveAdd = hh.row.code; x.benefits = [...new Set((x.benefits || []).concat('210'))]; } reopen(); }, 'sm'))))) : null,
           h('div', null, chk(x, 'leaveNone', 'Ցանկերին չի վերաբերում (հուշում չցույց տալ)', { ro, onChange: reopen }))),
           actions: [ro ? null : { label: 'Ջնջել', cls: 'danger', onClick: () => { setTimeout(() => delRow('positions', r), 0); } }, { label: 'Չեղարկել' },
-            ro ? null : { label: 'Պահպանել', cls: 'primary', onClick: () => { if (!okRow('positions', r, x)) return false; if (!x.leaveExt) delete x.leaveExt; if (!x.leaveAdd) delete x.leaveAdd; Object.assign(r, x); if (!x.leaveExt) delete r.leaveExt; if (!x.leaveAdd) delete r.leaveAdd; NHR.save(); NHR.rerender(); } }].filter(Boolean) });
+            ro ? null : { label: 'Պահպանել', cls: 'primary', onClick: () => { if (!okRow('positions', r, x)) return false; if (!x.leaveExt) delete x.leaveExt; if (!x.leaveAdd) delete x.leaveAdd; const was = r.name; Object.assign(r, x); if (!x.leaveExt) delete r.leaveExt; if (!x.leaveAdd) delete r.leaveAdd; renameDescs(was, r.name); NHR.save(); NHR.rerender(); } }].filter(Boolean) });
       };
       const leaveCell = (r) => {
         const ex = NHR.leaveListRow('extLeave', r.leaveExt), ad = NHR.leaveListRow('addLeave', r.leaveAdd);
@@ -10245,7 +10557,8 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
         if ((r.benefits || []).includes('210')) return chip('8.6՝ լրացուցիչ, կետը ընտրված չէ', 'warn');
         return h('span', { class: 'muted' }, '20/24');
       };
-      right = panel('Պաշտոններ', table([
+      right = panel('Պաշտոններ', [bulkBar(rows.filter(r => picked.has(r.code)).length, () => delOrgMany('positions')), table([
+        cbCol(rows, r => r.code),
         { th: 'Կոդ', cls: 'code', get: r => r.code }, { th: 'Անվանում', get: r => r.name },
         { th: 'Նկարագիր', get: r => { const d = NHR.desc(r.desc); return d ? d.variant : h('span', { class: 'muted' }, '—'); } },
         { th: 'Պայմաններ (8.6)', get: r => (r.conditions || []).length ? (r.conditions || []).map(c => h('span', { class: 'tag' }, c)) : h('span', { class: 'muted' }, 'նորմալ') },
@@ -10253,23 +10566,90 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
         { th: 'Օգտագործվում է', get: useCell('positions') },
         { th: 'Ակտիվ', get: r => activeToggle(r) },
         ro ? null : { th: '', get: r => rowActs('positions', r, (y) => editPos(y)) }
-      ].filter(Boolean), rows, { onRow: (r) => editPos(r) }), { flush: true, actions: ro ? null : h('span', { class: 'row', style: { gap: '6px' } }, btn('Ներմուծել ՀԾ-ից', importLists, 'sm', 'import'), btn('Նոր պաշտոն', () => addRowModal(rows, { conditions: [], benefits: [] }), 'sm', 'plus')) });
+      ].filter(Boolean), rows, { onRow: (r) => editPos(r) })], { flush: true, actions: ro ? null : h('span', { class: 'row', style: { gap: '6px' } }, btn('Ներմուծել ՀԾ-ից', importLists, 'sm', 'import'), btn('Նոր պաշտոն', () => addRowModal(rows, { conditions: [], benefits: [] }), 'sm', 'plus')) });
     } else if (refSel === 'org:workplaces') {
-      right = panel('Աշխատավայրեր', h('div', { style: { display: 'grid', gap: '12px' } }, table([
-        { th: 'Գործունեության տեսակ', get: a => a.activity }, { th: 'Հասցե', get: a => a.address }, { th: 'Մարզ', get: a => NHR.refName('regions', a.region) }, { th: 'Համայնք', get: a => NHR.refName('communes', a.commune) }
-      ], o.activityAddresses, { empty: 'Հասցե չկա' }), h('div', { class: 'muted small' }, 'Աշխատավայրերը կազմակերպության գործունեության հասցեներն են (Բ.1)։')), { actions: btn('Բացել կազմակերպության քարտը', () => NHR.open({ page: 'org', id: o.id }), 'sm') });
+      /* Աշխատավայրերը՝ կազմակերպության գործունեության հասցեները (Բ.1)։ Փոփոխությունը կազմակերպության քարտի փոփոխություն է (կուղարկվի Tasks) */
+      const rows = o.activityAddresses;
+      const wUse = (a) => NHR.useOf(use, 'workplaces', a.id);
+      const akey = (v) => String(v || '').replace(/\s+/g, ' ').trim().toLowerCase().replace(/և/g, 'եվ').replace(/եւ/g, 'եվ');
+      const wpName = (a) => [a.activity, a.address].filter(Boolean).join(' — ');
+      const wpSaved = () => { NHR.markSync(o); NHR.save(); NHR.rerender(); if (NHR.simulateSync) setTimeout(() => NHR.simulateSync([o]), 0); };
+      const delWp = (list) => delPicked(list.length > 1 ? 'Ջնջել նշված աշխատավայրերը' : 'Ջնջել աշխատավայրը', list, a => wUse(a).total > 0, wpName,
+        (free) => { if (!free.length) return; o.activityAddresses = o.activityAddresses.filter(a => !free.includes(a)); NHR.markSync(o); if (NHR.simulateSync) setTimeout(() => NHR.simulateSync([o]), 0); }, false);
+      const editWp = (a) => {
+        const isNew = !a, x = Object.assign({ address: '', activity: '', region: '', commune: '' }, a ? JSON.parse(JSON.stringify(a)) : {});
+        const u = a ? wUse(a) : { total: 0 };
+        let close = null;
+        const draw = () => {
+          if (close) close();
+          close = NHR.modal({ title: isNew ? 'Նոր աշխատավայր' : `Աշխատավայր՝ ${wpName(a)}`, wide: true, body: h('div', { style: { display: 'grid', gap: '12px' } },
+            h('div', { class: 'form' },
+              field('Գործունեության տեսակ', inp(x, 'activity', { ro, ph: 'օր.՝ Գրասենյակ' })),
+              field('Հասցե', inp(x, 'address', { ro }), { req: true, cls: 'w2' }),
+              field('Մարզ', sel(x, 'region', NHR.refOpts('regions', false), { ro, onChange: () => { x.commune = ''; draw(); } }), { hint: '8.5 և 8.7 ըստ մարզերի' }),
+              field('Համայնք', combo(x, 'commune', NHR.ref('communes').rows, { ro, filter: (c) => !x.region || c.region === x.region }))),
+            u.total ? h('div', { class: 'note info' }, NHR.icon('warn'), h('div', null, `Օգտագործվում է (${NHR.useText(u)})․ փոփոխությունը կերևա բոլոր տեղերում, որտեղ այս աշխատավայրն է նշված։`)) : null,
+            h('div', { class: 'muted small' }, 'Փոփոխությունը կուղարկվի նաև Numetrix Tasks։ Հասցեն փոխելիս կամ ջնջելիս Tasks-ում հին հասցեն հեռացրեք առանձին։')),
+            actions: ro ? [{ label: 'Փակել' }] : [isNew ? null : { label: 'Ջնջել', cls: 'danger', onClick: () => { setTimeout(() => delWp([a]), 0); } }, { label: 'Չեղարկել' },
+              { label: isNew ? 'Ավելացնել' : 'Պահպանել', cls: 'primary', onClick: () => {
+                x.address = String(x.address || '').replace(/\s+/g, ' ').trim(); x.activity = String(x.activity || '').replace(/\s+/g, ' ').trim();
+                if (!x.address) { NHR.toast('Լրացրեք հասցեն'); return false; }
+                if (o.activityAddresses.some(y => y !== a && akey(y.address) === akey(x.address))) { NHR.toast('Այս հասցեն արդեն կա'); return false; }
+                if (isNew) { if (o.activityAddresses.length >= 50) { NHR.toast('Առավելագույնը 50 հասցե'); return false; } o.activityAddresses.push(Object.assign(x, { id: NHR.uid('a') })); }
+                else Object.assign(a, x);
+                wpSaved(); NHR.toast('Պահպանվեց');
+              } }].filter(Boolean) });
+        };
+        draw();
+      };
+      right = panel('Աշխատավայրեր', h('div', { style: { display: 'grid', gap: '12px' } },
+        bulkBar(rows.filter(a => picked.has(a.id)).length, () => delWp(rows.filter(a => picked.has(a.id)))),
+        table([
+          cbCol(rows, a => a.id),
+          { th: 'Գործունեության տեսակ', get: a => a.activity || h('span', { class: 'muted' }, '—') }, { th: 'Հասցե', get: a => a.address },
+          { th: 'Մարզ', get: a => NHR.refName('regions', a.region) }, { th: 'Համայնք', get: a => NHR.refName('communes', a.commune) },
+          { th: 'Օգտագործվում է', get: a => { const u = wUse(a); return u.total ? h('span', { class: 'small' }, NHR.useText(u)) : h('span', { class: 'muted small' }, 'չի օգտագործվում'); } },
+          ro ? null : { th: '', get: a => h('span', { class: 'row', style: { gap: '4px', flexWrap: 'nowrap' } }, btn('Փոխել', (ev) => { ev.stopPropagation(); editWp(a); }, 'ghost sm'), btn('Ջնջել', (ev) => { ev.stopPropagation(); delWp([a]); }, 'ghost sm danger')) }
+        ].filter(Boolean), rows, { empty: 'Հասցե չկա', onRow: ro ? null : editWp }),
+        h('div', { class: 'muted small' }, 'Աշխատավայրերը կազմակերպության գործունեության հասցեներն են (Բ.1)։ Օգտագործվող աշխատավայրը չի ջնջվում։')),
+        { actions: h('span', { class: 'row', style: { gap: '6px' } }, ro ? null : btn('Նոր աշխատավայր', () => editWp(null), 'sm', 'plus'), btn('Բացել կազմակերպության քարտը', () => NHR.open({ page: 'org', id: o.id }), 'ghost sm')) });
     } else {
+      /* Պաշտոնների նկարագրերը՝ ընդհանուր գրադարան (բոլոր կազմակերպությունների համար). օգտագործվողը չի ջնջվում */
+      const dUse = (d) => NHR.descUsage(d.id);
+      const dName = (d) => `${d.position} (${d.variant})`;
+      const delDesc = (list) => descLimited()
+        ? NHR.modal({ title: 'Ջնջել հնարավոր չէ', body: h('div', null, 'Պաշտոնների նկարագրերը ընդհանուր են բոլոր կազմակերպությունների համար և կարող են օգտագործվել Ձեզ չտրված կազմակերպություններում։ Նկարագիրը կարող է ջնջել բոլոր կազմակերպությունները տեսնող օգտատերը (ադմին, Գլխավոր կամ Ավագ հաշվապահ)։'), actions: [{ label: 'Փակել' }] })
+        : delPicked(list.length > 1 ? 'Ջնջել նշված նկարագրերը' : 'Ջնջել նկարագիրը', list, d => dUse(d).total > 0, dName,
+          (free) => { if (free.length) S.posDescriptions = S.posDescriptions.filter(d => !free.includes(d)); }, false);
       const editDesc = (src) => {
         const x = Object.assign({ position: '', variant: 'Հիմնական', text: '' }, src ? JSON.parse(JSON.stringify(src)) : {});
-        NHR.modal({ title: src ? 'Պաշտոնի նկարագիր' : 'Նոր նկարագիր', wide: true, body: h('div', { class: 'form' },
-          field('Պաշտոն', inp(x, 'position'), { req: true }), field('Տարբերակ', inp(x, 'variant'), { req: true, hint: 'Օր.՝ Հիմնական, Արտադրական կազմակերպության համար' }), field('Տեքստ', area(x, 'text', { rows: 8 }), { cls: 'wall' })),
-          actions: [{ label: 'Չեղարկել' }, ro ? null : { label: 'Պահպանել', cls: 'primary', onClick: () => { if (!x.position || !x.variant) return false; if (src) Object.assign(S.posDescriptions.find(d => d.id === src.id), x); else S.posDescriptions.push(Object.assign({ id: NHR.uid('d') }, x)); NHR.save(); NHR.rerender(); } }].filter(Boolean) });
+        const u = src ? dUse(src) : { total: 0 };
+        /* Պաշտոնը՝ կազմակերպության պաշտոնների ցանկից (Տեղեկատուներ → Պաշտոններ). նկարագիրը կապվում է պաշտոնի անվանմամբ */
+        const posRows = NHR.oref(o.id, 'positions').filter(p => p.code && p.name && (p.active !== false || p.name === x.position)).map(p => ({ code: p.code, name: p.name }));
+        const pp = { v: (posRows.find(p => p.name === x.position) || {}).code || x.position };
+        const posField = ro || !posRows.length ? inp(x, 'position', { ro, ph: posRows.length ? '' : 'Տեղեկատուում պաշտոններ դեռ չկան' })
+          : combo(pp, 'v', posRows, { ph: 'Ընտրեք պաշտոնը', onChange: (code) => { const r = posRows.find(p => p.code === code); x.position = r ? r.name : ''; } });
+        NHR.modal({ title: src ? 'Պաշտոնի նկարագիր' : 'Նոր նկարագիր', wide: true, body: h('div', { style: { display: 'grid', gap: '12px' } }, h('div', { class: 'form' },
+          field('Պաշտոն', posField, { req: true, hint: posRows.length ? 'Տեղեկատուի «Պաշտոններ» ցանկից' : 'Նախ ավելացրեք պաշտոնները «Պաշտոններ» ցանկում' }), field('Տարբերակ', inp(x, 'variant', { ro }), { req: true, hint: 'Օր.՝ Հիմնական, Արտադրական կազմակերպության համար' }), field('Տեքստ', area(x, 'text', { rows: 8, ro }), { cls: 'wall' })),
+          u.total ? h('div', { class: 'note info' }, NHR.icon('warn'), h('div', null, `Օգտագործվում է (${NHR.descUseText(u)})։ Արդեն հաստատված փաստաթղթերը չեն փոխվում։`)) : null),
+          actions: ro ? [{ label: 'Փակել' }] : [src ? { label: 'Ջնջել', cls: 'danger', onClick: () => { const cur = S.posDescriptions.find(d => d.id === src.id); if (cur) setTimeout(() => delDesc([cur]), 0); } } : null, { label: 'Չեղարկել' },
+            { label: 'Պահպանել', cls: 'primary', onClick: () => {
+              x.position = String(x.position || '').trim(); x.variant = String(x.variant || '').trim();
+              if (!x.position || !x.variant) { NHR.toast('Ընտրեք պաշտոնը և լրացրեք տարբերակը'); return false; }
+              /* Նկարագիրն այլ պաշտոնի է անցնում՝ այս կազմակերպության այն պաշտոնները, որոնց հիմնականն էր, այլևս չեն հղվում դրան */
+              if (src && src.position !== x.position) NHR.oref(o.id, 'positions').forEach(p => { if (p.desc === src.id && p.name !== x.position) delete p.desc; });
+              if (src) Object.assign(S.posDescriptions.find(d => d.id === src.id), x); else S.posDescriptions.push(Object.assign({ id: NHR.uid('d') }, x));
+              NHR.save(); NHR.rerender(); NHR.toast('Պահպանվեց'); } }].filter(Boolean) });
       };
-      right = panel('Պաշտոնների նկարագրերի գրադարան', table([
-        { th: 'Պաշտոն', get: d => d.position }, { th: 'Տարբերակ', get: d => chip(d.variant, (d.variant === 'Հիմնական' ? 'acc' : '') + ' lbl') }, { th: 'Տեքստ', get: d => h('span', { class: 'muted' }, d.text.slice(0, 110) + (d.text.length > 110 ? '…' : '')) }
-      ], S.posDescriptions.slice().sort((a, b) => a.position.localeCompare(b.position, 'hy')), { onRow: editDesc }), { flush: true, actions: ro ? null : btn('Նոր նկարագիր', () => editDesc(), 'sm', 'plus') });
+      const drows = S.posDescriptions.slice().sort((a, b) => a.position.localeCompare(b.position, 'hy'));
+      right = panel('Պաշտոնների նկարագրերի գրադարան', [bulkBar(drows.filter(d => picked.has(d.id)).length, () => delDesc(drows.filter(d => picked.has(d.id)))), table([
+        cbCol(drows, d => d.id),
+        { th: 'Պաշտոն', get: d => { const u = dUse(d); return h('div', null, d.position, h('span', { class: 'sub' }, u.total ? NHR.descUseText(u) : 'չի օգտագործվում')); } },
+        { th: 'Տարբերակ', get: d => chip(d.variant, (d.variant === 'Հիմնական' ? 'acc' : '') + ' lbl') }, { th: 'Տեքստ', get: d => h('span', { class: 'muted small' }, d.text.slice(0, 90) + (d.text.length > 90 ? '…' : '')) },
+        ro ? null : { th: '', get: d => h('span', { class: 'row', style: { gap: '4px', flexWrap: 'nowrap' } }, btn('Փոխել', (ev) => { ev.stopPropagation(); editDesc(d); }, 'ghost sm'), btn('Ջնջել', (ev) => { ev.stopPropagation(); delDesc([d]); }, 'ghost sm danger')) }
+      ].filter(Boolean), drows, { onRow: editDesc })], { flush: true, actions: ro ? null : btn('Նոր նկարագիր', () => editDesc(), 'sm', 'plus') });
     }
-    return h('div', { style: { display: 'contents' } }, pageHead('Տեղեկատուներ', 'Ամեն տող՝ Կոդ, Անվանում, ՀԾ կոդ և «Ակտիվ» նշիչ։ Կազմակերպության ստորաբաժանումները, պաշտոնները և հավելումների տեսակները կարելի է փոխել և ջնջել. օգտագործվող տողը չի ջնջվում (կարելի է անջատել), և նրա կոդը չի փոխվում։'),
+    return h('div', { style: { display: 'contents' } }, pageHead('Տեղեկատուներ', 'Ամեն տող՝ Կոդ, Անվանում, ՀԾ կոդ և «Ակտիվ» նշիչ։ Կազմակերպության ստորաբաժանումները, պաշտոնները, հավելումների տեսակները, աշխատավայրերը և պաշտոնների նկարագրերը կարելի է փոխել և ջնջել, նաև մի քանիսը միասին՝ նշելով։ Օգտագործվող տողը չի ջնջվում (կարելի է անջատել), և նրա կոդը չի փոխվում։'),
       h('div', { class: 'split' }, nav, right));
   };
 
@@ -10278,12 +10658,11 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
   /* Գործուղման ներդիր՝ օտարերկրյա նորմի որոնումը (երկիր, քաղաք, ամսաթիվ) */
   const tripLook = { country: '268', city: '', date: '' };
   /* Կարգավորումների որոշակի ներդիր (օր.՝ կազմակերպության քարտից «Օգտատերեր») */
-  NHR.openSettings = (tab) => { setTab = tab || setTab; NHR.open({ page: 'settings' }); };
+  /* «Օգտատերեր և դերեր»-ը այժմ առանձին բաժին է՝ «Ադմին» (միայն ադմինի համար) */
+  NHR.openSettings = (tab) => { if (tab === 'users') { NHR.open({ page: 'admin' }); return; } setTab = tab || setTab; NHR.open({ page: 'settings' }); };
   NHR.views.settings = function () {
     const S = NHR.state(), o = NHR.curOrg();
-    /* «Օգտատերեր և դերեր»՝ միայն ադմինի համար (մյուսները օգտատերերից տեսնում են միայն անունը և դերը) */
-    const tabs = [['numbering', 'Համարակալում'], ['templates', 'Ձևանմուշներ'], ['tags', 'Թեգերի բառարան'], ['holidays', 'Տոնական օրեր'], ['payroll', 'Պահումներ'], ['trip', 'Գործուղում'], ['sync', 'Համաժամեցում Tasks-ի հետ'], ['users', 'Օգտատերեր և դերեր']]
-      .filter(t => t[0] !== 'users' || NHR.can('users'));
+    const tabs = [['numbering', 'Համարակալում'], ['templates', 'Ձևանմուշներ'], ['tags', 'Թեգերի բառարան'], ['holidays', 'Տոնական օրեր'], ['payroll', 'Պահումներ'], ['trip', 'Գործուղում'], ['sync', 'Համաժամեցում Tasks-ի հետ']];
     if (!tabs.some(t => t[0] === setTab)) setTab = tabs[0][0];
     let body;
     if (setTab === 'numbering') {
@@ -10490,7 +10869,19 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
           'Պատասխանատուն, պաշտոնը, ռեժիմը և սկիզբը գալիս են միայն Tasks-ից։ v2-ով Tasks-ին են գնում նաև գլխավոր հաշվապահը (ներառյալ փաստաթուղթը), մասնակիցները, լիազորության հիմքը, ղեկավարի քաղաքացիությունը, մայր կազմակերպությունը, ՁԿԴ-ն և հասցեների մարզ/համայնքը։ Լիազորագիրը գնում է միայն համարով և ամսաթվով միասին։ Երբ Tasks-ը սկսում է HR-ին ուղարկել v2, HR-ը մեկ անգամ բերում է բոլոր կազմակերպությունների v2 տվյալները։ Ղեկավարների պատմությունը և 1.2-ի նշանակման տվյալները մնում են միայն HR-ում։',
           'Tasks-ը նոր կազմակերպություն ստեղծում է միայն «Սպասարկում ենք» նշվածների համար։ Մայր կազմակերպության ՀՎՀՀ-ով մասնաճյուղը մնում է միայն HR-ում։',
           'Գաղտնի բանալին և ստորագրությունը միայն HR-ի Apps Script-ում են. GitHub-ի էջը դիմում է միայն իր սերվերին։'].map(t => h('li', null, t))))];
-    } else {
+    }
+    return h('div', { style: { display: 'contents' } }, pageHead('Կարգավորումներ'), NHR.tabs(tabs, setTab, (k) => { setTab = k; NHR.rerender(); }), body,
+      NHR.serverMode && !NHR.can('users') ? h('div', { class: 'muted small' }, 'Օգտատերերին, ադմիններին և նրանց կազմակերպությունները կառավարում է ադմինը («Ադմին» բաժինը երևում է միայն ադմինին)։') : null);
+  };
+
+  /* ================= Ադմին՝ օգտատերեր, ադմիններ, կազմակերպությունների հասանելիություն (միայն ադմին) ================= */
+  NHR.views.admin = function () {
+    if (!NHR.can('users')) return h('div', { class: 'note' }, NHR.icon('warn'), h('div', null, 'Այս բաժինը միայն ադմինի համար է։ Ադմին նշանակում է մեկ այլ ադմին կամ ադմինի բանալիով մուտք գործողը։'));
+    return h('div', { style: { display: 'contents' } }, pageHead('Ադմին', 'Օգտատերեր, ադմիններ և կազմակերպությունների հասանելիություն։ Ադմինը տեսնում է բոլոր կազմակերպությունները։'), usersBody());
+  };
+  function usersBody() {
+    const S = NHR.state();
+    {
       /* Օգտատերեր և դերեր (միայն ադմին)։ Ադմինը նշանակում է դերը, ադմիններին և ամեն օգտատիրոջ կազմակերպությունները (access.js) */
       const ROLE_RIGHTS = [
         ['Կազմակերպություններ, աշխատակիցներ, փաստաթղթեր', '✓', '✓', '✓', 'Միայն դիտում', '✓'],
@@ -10509,16 +10900,63 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
             const u = Object.assign({ id: NHR.uid('u'), admin: false, allOrgs: false, orgIds: [], blocked: false }, x); S.users.push(u); NHR.save(); setTimeout(() => NHR.userEdit(u), 0); } }] });
       };
       const users = S.users.slice().sort((a, b) => (NHR.isAdmin(b) - NHR.isAdmin(a)) || String(a.name || '').localeCompare(String(b.name || ''), 'hy'));
-      const nAdm = users.filter(u => NHR.isAdmin(u) && !u.blocked).length;
-      body = [h('div', { class: 'note' }, NHR.icon('people'), h('div', null,
-          h('b', null, 'Ինչպես նշանակել ադմին և բաժանել կազմակերպությունները. '),
-          'սեղմեք օգտատիրոջ տողի վրա → նշեք «Ծրագրի ադմին» կամ ընտրեք նրա կազմակերպությունները («Բոլորը» կամ «Միայն ընտրվածները»)։ ',
+      const admins = users.filter(u => NHR.isAdmin(u) && !u.blocked), nAdm = admins.length;
+      const nOrgs = S.orgs.filter(o => o.served).length;
+      /* «Ադմին» սյունակ՝ մեկ սեղմումով. նշանակելիս՝ անժամկետ կամ ժամանակավոր (մինչև ամսաթիվը, ներառյալ), հանելիս՝ հաստատմամբ.
+         իրեն, ադմինի բանալիով մուտքին և Հաճախորդին՝ ոչ, ժամանակավոր ադմինը՝ ոչ ոքի */
+      const meTmp = NHR.adminTmp(me), fmt = NHR.fmtDate;
+      const fallback = (u) => NHR.allOrgsOf(Object.assign({}, u, { admin: false })) ? 'բոլոր կազմակերպությունները' : 'միայն իրեն տրված կազմակերպությունները';
+      const grant = (u) => {
+        const x = { term: 'perm', until: '' };
+        const box = h('div', { style: { display: 'grid', gap: '12px' } });
+        const draw = () => {
+          box.innerHTML = '';
+          box.append(...[
+            h('div', null, `${u.name || 'Օգտատերը'} կտեսնի բոլոր կազմակերպությունները և կկառավարի օգտատերերին, կարգավորումները, համարները և ձևանմուշները։`),
+            h('div', { class: 'form' },
+              field('Ժամկետը', NHR.seg([['perm', 'Անժամկետ'], ['tmp', 'Ժամանակավոր']], x.term, (k) => { x.term = k; draw(); })),
+              x.term === 'tmp' ? field('Մինչև (ներառյալ)', NHR.dateInput({ value: x.until, label: 'Ադմին մինչև', onChange: (v) => { x.until = v; } }), { req: true }) : null),
+            x.term === 'tmp' ? h('div', { class: 'muted small' }, `Այդ օրվա վերջում ադմինի իրավունքը ինքնաբերաբար կհանվի. հետո կտեսնի ${fallback(u)}։ Ժամանակավոր ադմինը ադմին չի նշանակում և ադմիններին չի փոխում։`) : null
+          ].filter(Boolean));
+        };
+        draw();
+        NHR.modal({ title: `Նշանակել ադմին՝ ${u.name || ''}`, body: box, actions: [{ label: 'Չեղարկել' }, { label: 'Նշանակել', cls: 'primary', onClick: () => {
+          if (x.term === 'tmp' && !x.until) { NHR.toast('Նշեք, մինչև որ օրն է ադմին'); return false; }
+          if (x.term === 'tmp' && x.until < NHR.adminToday()) { NHR.toast('Ամսաթիվը չի կարող լինել անցած օր'); return false; }
+          if (u.allOrgs == null) u.allOrgs = NHR.allOrgsOf(Object.assign({}, u, { admin: false }));
+          if (!Array.isArray(u.orgIds)) u.orgIds = [];
+          u.admin = true; u.adminUntil = x.term === 'tmp' ? x.until : '';
+          NHR.save(); NHR.rerender(); NHR.toast(x.term === 'tmp' ? `${u.name}՝ ադմին մինչև ${fmt(x.until)}` : `${u.name}՝ ադմին է`);
+        } }] });
+      };
+      const revoke = (u) => NHR.confirm('Հանել ադմինի իրավունքը', `${u.name || 'Օգտատերը'} այլևս ադմին չի լինի և կտեսնի ${fallback(u)} (փոխվում է տողը սեղմելով)։`, 'Հանել', () => {
+        if (u.allOrgs == null) u.allOrgs = NHR.allOrgsOf(Object.assign({}, u, { admin: false }));
+        if (!Array.isArray(u.orgIds)) u.orgIds = [];
+        u.admin = false; u.adminUntil = '';
+        NHR.save(); NHR.rerender(); NHR.toast(`${u.name}՝ այլևս ադմին չէ`);
+      }, 'danger');
+      const admCell = (u) => {
+        const on = NHR.isAdmin(u), self = u.id === me.id, key = u.login === 'admin', cli = u.role === 'client', tmp = NHR.adminTmp(u), exp = NHR.adminExpired(u);
+        const why = key ? 'Ադմինի բանալիով մուտքը միշտ ադմին է' : self ? 'Ձեր ադմինի իրավունքը կարող է փոխել միայն մեկ այլ ադմին' : cli ? 'Հաճախորդը ադմին լինել չի կարող'
+          : meTmp ? 'Ժամանակավոր ադմինը ադմին չի նշանակում և ադմիններին չի փոխում' : on ? 'Հանել ադմինի իրավունքը' : 'Նշանակել ադմին';
+        return h('label', { class: 'check adm-tg' + (on ? ' on' : ''), title: why, onclick: (ev) => ev.stopPropagation() },
+          h('input', { type: 'checkbox', checked: on, disabled: self || key || cli || meTmp ? true : null, 'aria-label': `Ադմին՝ ${u.name || ''}`,
+            onchange: (ev) => { ev.target.checked = on; if (on) revoke(u); else grant(u); } }),
+          h('span', { class: exp ? 'muted' : null }, on ? (tmp ? `Ադմին՝ մինչև ${fmt(NHR.adminUntil(u))}` : 'Ադմին') : exp ? `Ժամկետը լրացել է ${fmt(NHR.adminUntil(u))}` : 'Ոչ'));
+      };
+      return [h('div', { class: 'note' }, NHR.icon('people'), h('div', null,
+          h('b', null, 'Ինչպես նշանակել ադմին. '), 'նշեք «Ադմին» սյունակում → «Անժամկետ» կամ «Ժամանակավոր» (մինչև ամսաթիվը)։ Ադմինը տեսնում է բոլոր կազմակերպությունները։ Ժամանակավորի իրավունքը այդ օրվա վերջում ինքնաբերաբար հանվում է։ ',
+          h('b', null, 'Մյուսների կազմակերպությունները. '), 'սեղմեք տողը → «Բոլորը» կամ «Միայն ընտրվածները»։ ',
           srv ? 'Սահմանափակումը գործում է սերվերում՝ օգտատերը չի ստանում իրեն չտրված կազմակերպությունների տվյալները։' : '')),
+        meTmp ? h('div', { class: 'note warn' }, NHR.icon('warn'), h('div', null, `Դուք ժամանակավոր ադմին եք (մինչև ${fmt(NHR.adminUntil(me))})․ կառավարում եք օգտատերերին, բայց ադմին նշանակել կամ ադմիններին փոխել չեք կարող։`)) : null,
+        h('div', { class: 'stats' },
+          h('div', { class: 'st' }, h('b', null, nAdm), h('span', null, `ադմին՝ ${admins.map(u => u.name + (NHR.adminTmp(u) ? ` (մինչև ${fmt(NHR.adminUntil(u))})` : '')).join(', ') || '—'}`)),
+          h('div', { class: 'st' }, h('b', null, nOrgs), h('span', null, 'սպասարկվող կազմակերպություն (ադմինները տեսնում են բոլորը)'))),
         panel(`Օգտատերեր (${users.length}, ադմին՝ ${nAdm})`, table([
           { th: 'Անուն Ազգանուն', get: u => h('div', null, h('b', null, u.name || '—'), u.id === me.id ? h('span', { class: 'sub' }, 'դուք') : null) },
           srv ? { th: 'Մուտքանուն (Tasks)', cls: 'code', get: u => u.login || '' } : { th: 'Էլ. փոստ', get: u => u.email },
           { th: 'Դեր', get: u => chip(NHR.ROLES[u.role] || u.role, (u.role === 'client' ? '' : 'acc') + ' lbl') },
-          { th: 'Ադմին', get: u => NHR.isAdmin(u) ? chip('Ադմին', 'ok') : '' },
+          { th: 'Ադմին', get: admCell },
           { th: 'Կազմակերպություններ', get: u => NHR.userAccessText(u) },
           { th: 'Մուտք', get: u => u.blocked ? chip('Արգելված', 'bad') : h('span', { class: 'muted' }, 'Թույլատրված') }
         ], users, { onRow: u => NHR.userEdit(u) }), { flush: true, actions: !srv ? btn('Նոր օգտատեր', addUser, 'sm', 'plus') : null }),
@@ -10527,17 +10965,16 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
           h('tbody', null, ROLE_RIGHTS.map(r => h('tr', null, r[2] === '' && r[1].length > 20
             ? [h('td', null, r[0]), h('td', { class: 'small', colspan: 2 }, r[1]), ...r.slice(3).map(c => h('td', { class: 'small' }, c))]
             : r.map((c, i) => h('td', { class: i ? 'small' : '' }, c)))))))),
-        h('div', { class: 'muted small' }, srv ? 'Օգտատերը ավելանում է ինքնաբերաբար՝ Numetrix Tasks-ից առաջին մուտքի ժամանակ. Tasks-ի «Ղեկավար»-ը՝ Գլխավոր հաշվապահ և ադմին, «Աշխատակից»-ը՝ Հաշվապահ (առանց կազմակերպությունների, բացի Tasks-ում իր պատասխանատվությամբ կազմակերպություններից)։ Ադմինի բանալիով մուտքը միշտ ադմին է։'
+        h('div', { class: 'muted small' }, srv ? 'Օգտատերը այս ցուցակում երևում է Numetrix Tasks-ից («Numetrix HR» կոճակով) առաջին մուտքից հետո. Tasks-ի «Ղեկավար»-ը՝ Գլխավոր հաշվապահ և ադմին, «Աշխատակից»-ը՝ Հաշվապահ (առանց կազմակերպությունների, բացի Tasks-ում իր պատասխանատվությամբ կազմակերպություններից)։ Ադմինի բանալիով մուտքը միշտ ադմին է։'
           : 'Ամեն օգտատեր մտնում է իր անունով, որ երևա, թե ով ինչ է կազմել և հաստատել։')];
     }
-    return h('div', { style: { display: 'contents' } }, pageHead('Կարգավորումներ'), NHR.tabs(tabs, setTab, (k) => { setTab = k; NHR.rerender(); }), body);
-  };
+  }
 })();
 
 </script>
 <script>
 /* Numetrix HR — ադմին և կազմակերպությունների հասանելիություն։
-   «Կարգավորումներ → Օգտատերեր և դերեր»՝ ադմինը նշանակում է դերը, ադմիններին և ամեն օգտատիրոջ կազմակերպությունները,
+   «Ադմին» բաժին (ձախ ընտրացանկում, միայն ադմինին)՝ ադմինը նշանակում է դերը, ադմիններին և ամեն օգտատիրոջ կազմակերպությունները,
    կազմակերպության քարտում («Ով է տեսնում»)՝ նույնը տվյալ կազմակերպության համար։
    Էջը միայն փոխում է օգտատիրոջ գրառումը. սահմանափակումը գործում է սերվերում (Code.gs). օգտատերը չի ստանում
    իրեն չթույլատրված կազմակերպությունների տվյալները և չի կարող դրանք փոխել։ */
@@ -10597,30 +11034,50 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
   /** Օգտատիրոջ պատուհանը (միայն ադմին). դեր, ադմին, կազմակերպություններ, մուտքի արգելք */
   NHR.userEdit = (u) => {
     if (!NHR.can('users') || !u) return;
-    const me = NHR.user(), self = u.id === me.id, key = u.login === 'admin';
-    const x = { role: u.role, admin: NHR.isAdmin(u), allOrgs: allFlag(u), orgIds: (u.orgIds || []).slice(), blocked: u.blocked === true };
+    const me = NHR.user(), self = u.id === me.id, key = u.login === 'admin', meTmp = NHR.adminTmp(me);
+    /* Ժամանակավոր ադմինը ադմին չի նշանակում և ադմինների գրառումները չի փոխում (նույնը ստուգում է սերվերը) */
+    const lockAll = meTmp && !self && NHR.isAdmin(u), lockAdm = self || key || meTmp || lockAll;
+    const until0 = NHR.adminUntil(u), fmt = NHR.fmtDate;
+    const x = { role: u.role, admin: NHR.isAdmin(u), allOrgs: allFlag(u), orgIds: (u.orgIds || []).slice(), blocked: u.blocked === true,
+      term: NHR.adminTmp(u) ? 'tmp' : 'perm', until: NHR.adminTmp(u) ? until0 : '' };
     const body = h('div', { style: { display: 'grid', gap: '12px' } });
     const draw = () => {
       body.innerHTML = '';
-      const adm = x.role !== 'client' && x.admin;
+      const adm = x.role !== 'client' && x.admin, tmp = adm && !key && x.term === 'tmp';
       body.append(...[
         h('div', { class: 'form' },
-          field('Դեր', sel(x, 'role', Object.entries(NHR.ROLES).filter(([k]) => !(self && k === 'client')), { empty: false, ro: key, onChange: draw }), { hint: 'Փաստաթղթերի իրավունքները՝ ըստ դերի' }),
-          h('div', { class: 'field' }, h('label', null, ' '), chk(x, 'admin', 'Ծրագրի ադմին', { ro: self || key || x.role === 'client', onChange: draw }))),
+          field('Դեր', sel(x, 'role', Object.entries(NHR.ROLES).filter(([k]) => !(self && k === 'client')), { empty: false, ro: key || lockAll, onChange: draw }), { hint: 'Փաստաթղթերի իրավունքները՝ ըստ դերի' }),
+          h('div', { class: 'field' }, h('label', null, ' '), chk(x, 'admin', 'Ծրագրի ադմին', { ro: lockAdm || x.role === 'client', onChange: draw }))),
+        /* Ադմինի ժամկետը՝ անժամկետ կամ մինչև որոշակի օր (ներառյալ) */
+        adm && !key ? h('div', { class: 'form' },
+          field('Ադմինի ժամկետը', lockAdm ? h('div', { class: 'small', style: { paddingTop: '8px' } }, tmp ? `Ժամանակավոր՝ մինչև ${fmt(x.until)} (ներառյալ)` : 'Անժամկետ')
+            : NHR.seg([['perm', 'Անժամկետ'], ['tmp', 'Ժամանակավոր']], x.term, (k) => { x.term = k; draw(); })),
+          tmp && !lockAdm ? field('Մինչև (ներառյալ)', NHR.dateInput({ value: x.until, label: 'Ադմին մինչև', onChange: (v) => { x.until = v; } }), { req: true, hint: 'Այդ օրվա վերջում ադմինի իրավունքը ինքնաբերաբար կհանվի' }) : null) : null,
+        NHR.adminExpired(u) && !x.admin ? h('div', { class: 'note' }, h('div', null, `Ժամանակավոր ադմինի ժամկետը լրացել է ${fmt(until0)}-ին։ Նորից ադմին նշանակելու համար նշեք «Ծրագրի ադմին»։`)) : null,
         h('div', { class: 'muted small' }, adm
-          ? 'Ադմինը կառավարում է օգտատերերին և նրանց հասանելիությունը, կարգավորումները, համարները և ձևանմուշները, և տեսնում է բոլոր կազմակերպությունները։'
+          ? (tmp ? `Մինչև ${x.until ? fmt(x.until) : 'նշված օրը'} (ներառյալ) ադմին է՝ տեսնում է բոլոր կազմակերպությունները և կառավարում է օգտատերերին (բացի ադմին նշանակելուց)։ Հետո ինքնաբերաբար դառնում է սովորական օգտատեր և տեսնում է ստորև նշված կազմակերպությունները։`
+            : 'Ադմինը կառավարում է օգտատերերին և նրանց հասանելիությունը, կարգավորումները, համարները և ձևանմուշները, և տեսնում է բոլոր կազմակերպությունները։')
           : x.role === 'client' ? 'Հաճախորդը միայն դիտում է իրեն տրված կազմակերպությունները։' : 'Ադմին չէ․ տեսնում է միայն ստորև նշված կազմակերպությունները։'),
-        adm ? null : field('Կազմակերպություններ', NHR.seg([['all', 'Բոլորը'], ['some', 'Միայն ընտրվածները']], x.allOrgs ? 'all' : 'some', (k) => { x.allOrgs = k === 'all'; draw(); }), { cls: 'wall' }),
-        adm || x.allOrgs ? null : NHR.orgPicker(x, u),
-        adm || x.allOrgs || x.role === 'client' ? null : h('div', { class: 'muted small' }, 'Numetrix Tasks-ում այս օգտատիրոջ պատասխանատվությամբ կազմակերպությունները երևում են ինքնաբերաբար (նշված են «Tasks-ում պատասխանատու»)։'),
-        h('div', { class: 'form' }, h('div', { class: 'field wall' }, chk(x, 'blocked', 'Մուտքը արգելված է (չի կարող բացել Numetrix HR-ը)', { ro: self || key }))),
-        self ? h('div', { class: 'note' }, h('div', null, 'Սա դուք եք․ ձեր ադմինի իրավունքը և մուտքը կարող է փոխել միայն մեկ այլ ադմին։'))
-          : key ? h('div', { class: 'note' }, h('div', null, 'Ադմինի բանալիով մուտքը միշտ ադմին է։')) : null
+        adm && !tmp ? null : field(tmp ? 'Կազմակերպություններ՝ ժամկետից հետո' : 'Կազմակերպություններ', NHR.seg([['all', 'Բոլորը'], ['some', 'Միայն ընտրվածները']], x.allOrgs ? 'all' : 'some', (k) => { if (lockAll) return; x.allOrgs = k === 'all'; draw(); }), { cls: 'wall' }),
+        (adm && !tmp) || x.allOrgs || lockAll ? null : NHR.orgPicker(x, u),
+        (adm && !tmp) || x.allOrgs || x.role === 'client' ? null : h('div', { class: 'muted small' }, 'Numetrix Tasks-ում այս օգտատիրոջ պատասխանատվությամբ կազմակերպությունները երևում են ինքնաբերաբար (նշված են «Tasks-ում պատասխանատու»)։'),
+        h('div', { class: 'form' }, h('div', { class: 'field wall' }, chk(x, 'blocked', 'Մուտքը արգելված է (չի կարող բացել Numetrix HR-ը)', { ro: self || key || lockAll }))),
+        self ? h('div', { class: 'note' }, h('div', null, until0 && NHR.adminTmp(u) ? `Սա դուք եք․ դուք ադմին եք մինչև ${fmt(until0)}։ Ձեր ադմինի իրավունքը, ժամկետը և մուտքը կարող է փոխել միայն մեկ այլ ադմին։` : 'Սա դուք եք․ ձեր ադմինի իրավունքը և մուտքը կարող է փոխել միայն մեկ այլ ադմին։'))
+          : key ? h('div', { class: 'note' }, h('div', null, 'Ադմինի բանալիով մուտքը միշտ ադմին է (անժամկետ)։')) : null,
+        lockAll ? h('div', { class: 'note warn' }, h('div', null, 'Դուք ժամանակավոր ադմին եք․ ադմինների տվյալները չեք փոխում։'))
+          : meTmp && !self ? h('div', { class: 'muted small' }, 'Դուք ժամանակավոր ադմին եք․ ադմին նշանակել չեք կարող։') : null
       ].filter(Boolean));
     };
     draw();
-    NHR.modal({ title: u.name || 'Օգտատեր', wide: true, body, actions: [{ label: 'Չեղարկել' }, { label: 'Պահպանել', cls: 'primary', onClick: () => {
-      u.role = x.role; u.admin = x.role !== 'client' && !!x.admin; u.allOrgs = !!x.allOrgs; u.orgIds = x.orgIds.slice().sort(); u.blocked = !!x.blocked;
+    NHR.modal({ title: u.name || 'Օգտատեր', wide: true, body, actions: lockAll ? [{ label: 'Փակել' }] : [{ label: 'Չեղարկել' }, { label: 'Պահպանել', cls: 'primary', onClick: () => {
+      const adm = x.role !== 'client' && !!x.admin, tmp = adm && !key && x.term === 'tmp';
+      if (!lockAdm && tmp) {
+        if (!x.until) { NHR.toast('Նշեք, մինչև որ օրն է ադմին'); return false; }
+        if (x.until < NHR.adminToday() && x.until !== until0) { NHR.toast('Ամսաթիվը չի կարող լինել անցած օր'); return false; }
+      }
+      u.role = x.role; u.allOrgs = !!x.allOrgs; u.orgIds = x.orgIds.slice().sort(); u.blocked = !!x.blocked;
+      if (!lockAdm) { u.admin = adm; u.adminUntil = tmp ? x.until : ''; }
+      else if (x.role === 'client') u.admin = false;
       NHR.save(); NHR.rerender(); NHR.toast('Պահպանված է');
     } }] });
   };
@@ -10643,10 +11100,10 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
       return h('label', { class: 'check' + (on ? ' on' : '') }, cb, h('span', { class: 'grow' }, u.name), h('span', { class: 'muted small' }, NHR.ROLES[u.role] || ''), tr ? chip('Tasks-ում պատասխանատու', 'acc') : null);
     });
     return panel('Ով է տեսնում', h('div', { style: { display: 'grid', gap: '10px' } },
-      h('div', { class: 'small' }, h('span', { class: 'muted' }, 'Բոլոր կազմակերպությունները՝ '), allU.length ? allU.map(u => u.name + (NHR.isAdmin(u) ? ' (ադմին)' : '')).join(', ') : '—'),
+      h('div', { class: 'small' }, h('span', { class: 'muted' }, 'Բոլոր կազմակերպությունները՝ '), allU.length ? allU.map(u => u.name + (NHR.isAdmin(u) ? ` (${NHR.adminText(u)})` : '')).join(', ') : '—'),
       limited.length ? h('div', { class: 'checklist acclist' }, rows) : h('div', { class: 'muted small' }, 'Սահմանափակ հասանելիությամբ օգտատեր չկա'),
       h('div', { class: 'muted small' }, 'Նշումը պահվում է անմիջապես (քարտը պահելու կարիք չկա)։')),
-      { actions: btn('Օգտատերեր', () => NHR.openSettings('users'), 'ghost sm') });
+      { actions: btn('Ադմին՝ օգտատերեր', () => NHR.open({ page: 'admin' }), 'ghost sm') });
   };
 })();
 
@@ -11036,6 +11493,21 @@ window.NHR_TRIP_FOREIGN = {"from":"2026-01-01","published":"2025-12-30","source"
     await Promise.all([worker(), worker()]);
     pr.finish(`Պահպանվեց՝ ${ok}` + (bad ? `, չհաջողվեց՝ ${bad}` : '') + (pr.stopped() || stopAll ? ` (մնաց՝ ${list.length - ok - bad})` : ''));
   }
+
+  /* Նշված փաստաթղթերի PDF-ները (մատյանից)՝ կազմվում կամ նորից կազմվում են Google Drive-ում (նախորդը փոխարինվում է) */
+  NHR.driveSaveMany = async (docs) => {
+    const list = docs.filter(d => d.status === 'approved' && NHR.docHasText(d)).sort((a, b) => a.date.localeCompare(b.date)), pr = progress('PDF-ները՝ Google Drive');
+    let i = 0, ok = 0, bad = 0, stopAll = false;
+    const worker = async () => {
+      while (i < list.length && !pr.stopped() && !stopAll) {
+        const d = list[i++];
+        pr.set(ok + bad, list.length, `${ok + bad}/${list.length} · ${d.code} ${NHR.docEmpName(d)}`);
+        try { if (NHR.driveSaving(d.id)) await NHR.driveEnsure(d); else await NHR.driveSave(d); ok++; } catch (e) { bad++; pr.err(`${d.code} · ${NHR.docEmpName(d)}՝ ${e.message}`); if (fatal(e.message)) stopAll = true; }
+      }
+    };
+    await Promise.all([worker(), worker()]);
+    pr.finish(`Պահպանվեց՝ ${ok}` + (bad ? `, չհաջողվեց՝ ${bad}` : '') + (pr.stopped() || stopAll ? ` (մնաց՝ ${list.length - ok - bad})` : ''));
+  };
 
   /* Աշխատակցի քարտ → «Ֆայլեր»՝ Google Drive-ի թղթապանակը և պահված փաստաթղթերը */
   NHR.driveEmpPanel = (e) => {
