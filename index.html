@@ -317,6 +317,9 @@ input.code { letter-spacing: .02em; }
 .form { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px 16px; }
 .form .w2 { grid-column: span 2; }
 .form .wall { grid-column: 1 / -1; }
+/* գրանցում՝ նախկին փաստաթուղթ (ուշ գրանցում) */
+.prevdoc { display: grid; gap: 12px; padding: 12px; border: 1px dashed var(--line); border-radius: var(--r); background: var(--line-2); }
+.prevdoc .note { margin: 0; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .row > * { min-width: 0; }
 .inline-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -595,6 +598,11 @@ hr.sep { border: 0; border-top: 1px solid var(--line-2); margin: 4px 0; }
 .icon-btn { width: 30px; height: 30px; flex: none; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink-2); display: inline-grid; place-items: center; cursor: pointer; }
 .icon-btn:hover { border-color: var(--accent); color: var(--accent-fg); }
 .icon-btn[disabled] { opacity: .45; cursor: not-allowed; }
+.icon-btn.danger { color: var(--bad); }
+.icon-btn.danger:hover { border-color: var(--bad); color: var(--bad); }
+/* մատյանի տողի գործողությունները (խմբագրել, ջնջել) */
+.t th.acts, .t td.acts { width: 1%; white-space: nowrap; padding-top: 6px; padding-bottom: 6px; }
+.row-acts { display: inline-flex; gap: 4px; }
 .icon-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; }
 .bulkbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--line-2); }
 .bulkbar .cnt-sel { font-size: 13px; color: var(--muted); }
@@ -985,6 +993,8 @@ input.bad { border-color: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, v
 .acclist .check, .ocheck .check { flex-wrap: wrap; row-gap: 2px; padding-top: 4px; padding-bottom: 4px; }
 .checklist .check .chip { flex: none; }
 @media (max-width: 640px) { .ocheck { max-height: 50vh; } .opick .row .btn { flex: 1 1 auto; } }
+/* PDF-ը տպելու անտեսանելի շրջանակ (drive.js) */
+iframe.pdf-print { position: fixed; right: 0; bottom: 0; width: 1px; height: 1px; border: 0; opacity: 0; pointer-events: none; }
 
 </style>
 </head>
@@ -993,7 +1003,7 @@ input.bad { border-color: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, v
 <noscript><p style="padding:24px">Numetrix HR-ը աշխատում է միայն JavaScript-ով։</p></noscript>
 <script>window.NHR_SITE = true;</script>
 <script src="config.js"></script>
-<script>window.NHR_BUILD = '17096310a0';</script>
+<script>window.NHR_BUILD = '086c707247';</script>
 <script>
 /* Numetrix HR — ընդհանուր տեղեկատուներ, որոնք եկել են ՀԾ-ից կամ ստանդարտից։
    Համայնքներ՝ 930 տող ՀԾ-ի նկարներից (առանց ԼՂՀ-ի), երկրներ՝ ISO 3166 թվային կոդեր։ */
@@ -2506,7 +2516,9 @@ window.NHR_DEMO = function () {
   /* ---------- Numbering (Զ.1) ---------- */
   const parseOrder = (s) => { const m = /^(\d+)(?:-(\d+))?\/(\d{4})$/.exec(s || ''); return m ? { n: +m[1], k: m[2] ? +m[2] : 0, y: +m[3] } : null; };
   NHR.parseOrder = parseOrder;
-  NHR.ordersOf = (orgId, year) => S.documents.filter(d => d.orgId === orgId && d.numbers && d.numbers.order && d.status !== 'draft')
+  /* Խմբագրման համար վերաբացված սևագրի (d.reopened) համարները զբաղված են. նորից հաստատելիս նույնն են */
+  const numbered = (d) => d.status !== 'draft' || !!d.reopened;
+  NHR.ordersOf = (orgId, year) => S.documents.filter(d => d.orgId === orgId && d.numbers && d.numbers.order && numbered(d))
     .map(d => Object.assign({ doc: d, date: d.date }, parseOrder(d.numbers.order))).filter(x => x.y === year);
   NHR.nextOrder = (orgId, date) => {
     const y = +date.slice(0, 4), o = NHR.org(orgId);
@@ -2522,7 +2534,7 @@ window.NHR_DEMO = function () {
   };
   NHR.nextAgreement = (orgId, date) => {
     const y = +date.slice(0, 4), o = NHR.org(orgId);
-    const nums = S.documents.filter(d => d.orgId === orgId && d.numbers && d.numbers.agreement && d.status !== 'draft')
+    const nums = S.documents.filter(d => d.orgId === orgId && d.numbers && d.numbers.agreement && numbered(d))
       .map(d => /^Հ-(\d+)\/(\d{4})$/.exec(d.numbers.agreement)).filter(m => m && +m[2] === y).map(m => +m[1]);
     const startN = (o.hr.implDate && +o.hr.implDate.slice(0, 4) === y) ? (o.hr.agreementStart || 1) : 1;
     const n = nums.length ? Math.max(...nums) + 1 : startN;
@@ -2565,15 +2577,17 @@ window.NHR_DEMO = function () {
   };
   NHR.nextCivil = (empId) => {
     const e = NHR.emp(empId);
-    const used = S.documents.filter(d => d.empId === empId && d.code === '2.2' && d.status !== 'draft').map(d => d.numbers.civil);
+    const used = S.documents.filter(d => d.empId === empId && d.code === '2.2' && numbered(d) && d.numbers && d.numbers.civil).map(d => d.numbers.civil);
     if (!used.length) return e.tabel;
     const ks = used.map(n => { const m = new RegExp('^' + e.tabel + '(?:-(\\d+))?$').exec(n); return m ? (m[1] ? +m[1] : 0) : 0; });
     return `${e.tabel}-${Math.max(...ks) + 1}`;
   };
+  /* Ակտի հերթական համարը՝ ամենամեծից հետո (ջնջված ակտի համարը չի կրկնվում) */
   NHR.nextAct = (contractDocId) => {
     const c = S.documents.find(d => d.id === contractDocId);
-    const n = S.documents.filter(d => d.code === '2.3' && d.fields.contractDocId === contractDocId && d.status !== 'draft').length + 1;
-    return `${n}-${c.numbers.civil}`;
+    const acts = S.documents.filter(d => d.code === '2.3' && d.fields.contractDocId === contractDocId && numbered(d));
+    const max = Math.max(0, ...acts.map(d => parseInt(String((d.numbers || {}).act || ''), 10)).filter(n => !isNaN(n)));
+    return `${Math.max(max, acts.length) + 1}-${c.numbers.civil}`;
   };
 
   /* ---------- Templates (Զ.2) ---------- */
@@ -2604,8 +2618,15 @@ window.NHR_DEMO = function () {
     if (n.out) parts.push(`Ելից ${n.out}`);
     return parts.join(' · ');
   };
+  /* Խմբագրման համար վերաբացված փաստաթղթի պահված համարը (տարին փոխվել է՝ ոչ) */
+  const yearOk = (n, date) => { const m = /\/(\d{4})$/.exec(String(n || '')); return !m || !date || m[1] === String(date).slice(0, 4); };
+  NHR.keptNum = (d, k) => { const n = d && d.reopened && d.numbers ? d.numbers[k] : ''; return n && yearOk(n, d.date) ? String(n) : ''; };
   NHR.approve = (d) => {
     const def = NHR.docDef(d.code), o = NHR.org(d.orgId), f = d.fields;
+    /* վերաբացված փաստաթուղթը նորից հաստատելիս՝ նույն համարները (եթե տարին նույնն է) */
+    const kept = d.reopened ? Object.assign({}, d.numbers) : null;
+    if (kept) d.numbers = kept.out && yearOk(kept.out, d.date) ? { out: kept.out } : {};
+    const keep = (k, fresh) => (kept && kept[k] && yearOk(kept[k], d.date) ? kept[k] : fresh());
     NHR.assignOut(d, true);
     const nums = {};
     if (def.kind === 'hire') {
@@ -2621,7 +2642,7 @@ window.NHR_DEMO = function () {
       }
       const tabel = f.tabel || NHR.nextTabel(d.orgId);
       const empId = NHR.uid('e');
-      const ord = NHR.nextOrder(d.orgId, d.date);
+      const ord = { number: keep('order', () => NHR.nextOrder(d.orgId, d.date).number) };
       nums.contract = tabel; nums.order = ord.number;
       S.employments.push({ id: empId, orgId: d.orgId, personId, tabel, contractType: '1', dateOn: f.dateOn, dateOff: '', inOrder: ord.number, offOrder: '', offBasis: '', source: 'hr', hireDocId: d.id,
         legal: { incomeTax: true, reducePension: false, salaryAccount: '5271', partnerCode: '', tradeUnion: 0, participation: (NHR.person(personId).birthday || '1974') >= '1974' ? '1' : '0', employerPerc: 0, employerSumm: 0, stampFee: '1', insuranceFee: '0', insuranceDate: '' },
@@ -2650,14 +2671,14 @@ window.NHR_DEMO = function () {
         vacation: { implBalance: 0 }, history: [{ from: d.date, source: 'doc', docId: d.id }] });
       d.empId = empId;
     } else if (def.kind === 'civil') {
-      nums.civil = NHR.nextCivil(d.empId);
+      nums.civil = keep('civil', () => NHR.nextCivil(d.empId));
     } else if (def.kind === 'act') {
       const c = S.documents.find(x => x.id === f.contractDocId); if (c) d.empId = c.empId;
-      nums.act = NHR.nextAct(f.contractDocId);
+      nums.act = keep('act', () => NHR.nextAct(f.contractDocId));
     } else if (def.kind === 'leave' || def.kind === 'trip') {
-      nums.order = NHR.nextOrder(d.orgId, d.date).number;
+      nums.order = keep('order', () => NHR.nextOrder(d.orgId, d.date).number);
     } else if (def.kind === 'change') {
-      nums.agreement = NHR.nextAgreement(d.orgId, d.date);
+      nums.agreement = keep('agreement', () => NHR.nextAgreement(d.orgId, d.date));
       const e = NHR.emp(d.empId);
       /* Պահվում են պայմանագրի կետերը և պայմանները՝ առաջ և հետո (agr.js), քարտում՝ նոր տող փոփոխության օրվանից */
       NHR.agrFreeze(d);
@@ -2666,9 +2687,9 @@ window.NHR_DEMO = function () {
         if (rep) f.replaced = JSON.parse(JSON.stringify(rep));
         e.history = e.history.filter(x => x.from !== f.effective).concat([Object.assign({}, f.after, { from: f.effective, source: 'doc', docId: d.id })]);
       }
-      if ((f.changes || []).some(k => k === 'position' || k === 'dept')) nums.order = NHR.nextOrder(d.orgId, d.date).number;
+      if ((f.changes || []).some(k => k === 'position' || k === 'dept')) nums.order = keep('order', () => NHR.nextOrder(d.orgId, d.date).number);
     } else if (def.kind === 'civilChange') {
-      nums.agreement = NHR.nextAgreement(d.orgId, d.date);
+      nums.agreement = keep('agreement', () => NHR.nextAgreement(d.orgId, d.date));
       /* Պահվում են նախորդ ծավալները և ավարտը, որ համաձայնագրի տեքստը չփոխվի */
       const c = S.documents.find(x => x.id === f.contractDocId);
       if (c) { d.empId = c.empId; NHR.agrFreeze(d); const prev = NHR.civilAt(c, f.effective); f.prevItems = JSON.parse(JSON.stringify(prev.items)); f.prevEnd = NHR.civilNow(c).end; }
@@ -2677,8 +2698,8 @@ window.NHR_DEMO = function () {
       /* Տնօրենին ազատում է հիմնադիրը (որոշում կամ արձանագրություն՝ ձեռքով գրված համարով), մյուսներին՝ հրամանով։ 7.2-ում՝ նաև համաձայնագրի համար։
          Ստաժը, արձակուրդը, նպաստը և ծանուցումը պահվում են (dismiss.js), որ փաստաթուղթը հետագայում չփոխվի */
       const e = NHR.emp(d.empId), dir = NHR.dismissIsDirector(d);
-      if (dir) { if (f.decisionNum) nums.decision = String(f.decisionNum).trim(); } else nums.order = NHR.nextOrder(d.orgId, d.date).number;
-      if (def.numbers.includes('agreement')) nums.agreement = NHR.nextAgreement(d.orgId, f.agreementDate || d.date);
+      if (dir) { if (f.decisionNum) nums.decision = String(f.decisionNum).trim(); } else nums.order = keep('order', () => NHR.nextOrder(d.orgId, d.date).number);
+      if (def.numbers.includes('agreement')) nums.agreement = keep('agreement', () => NHR.nextAgreement(d.orgId, f.agreementDate || d.date));
       NHR.dismissFreeze(d); delete f._emp;
       e.dateOff = f.dateOff; e.offOrder = nums.order || nums.decision || ''; e.offBasis = d.code;
       const p = NHR.empPerson(e);
@@ -2690,6 +2711,7 @@ window.NHR_DEMO = function () {
     }
     d.numbers = Object.assign({}, d.numbers, nums);
     d.status = 'approved'; d.approvedBy = S.currentUserId; d.approvedAt = new Date().toISOString();
+    if (kept) { delete d.reopened; d.updatedAt = d.approvedAt; d.updatedBy = S.currentUserId; }
     if (def.kind === 'act') NHR.freezeAct(d);
     const v = NHR.tplFor(d.code, d.date); d.tplVersion = v ? v.v : '';
     if (nums.order) { const pn = parseOrder(nums.order); d.backdated = !!(pn && pn.k); }
@@ -2708,13 +2730,99 @@ window.NHR_DEMO = function () {
     stay: { inRA: true, region: '', commune: '', locality: '', city: '', street: '', house: '', apt: '', country: '', line1: '', line2: '', line3: '', postal: '' },
     phone: '', mobile: '', email: '', languages: '', marital: '', education: [], military: { desc: '', start: '', end: '' }, family: [], otherInfo: '', depositAcc: '', hc: {},
     /* լատինատառ անուն, ազգանուն և արտասահմանյան անձնագրի համար (անգլերեն տեղեկանքի համար, 9.4) */
-    latFirst: '', latLast: '', passIntl: '', passIntlGiven: '', passIntlUntil: '', passIntlBy: '', addrEn: '' });
+    latFirst: '', latLast: '', passIntl: '', passIntlGiven: '', passIntlUntil: '', passIntlBy: '', addrEn: '', idDocHistory: [] });
+
+  /* ---------- Անձը հաստատող փաստաթուղթը՝ ըստ ամսաթվի ----------
+     p.idDoc՝ գործող (վերջին) փաստաթուղթը։ ՀԾ-ում մեկ փաստաթուղթ է, ուստի ՀԾ-ից ներմուծումը և ՀԾ-ի համար արտահանումը աշխատում են միայն սրանով։
+     p.idDocHistory՝ նախկին փաստաթղթերը։ Պայմանագրում, հրամանում, տեղեկանքում նշվում է փաստաթղթի ամսաթվին գործողը՝ մինչև այդ օրը
+     տրվածներից վերջինը (օր.՝ ուշ գրանցված աշխատակցի պայմանագրում՝ ընդունման օրվա անձնագիրը, թեև հետո այն փոխվել է) */
+  const ID_KEYS = ['type', 'passport', 'other', 'givenDate', 'givenBy', 'validUntil'];
+  const idNo = (x) => String((x && (x.passport || x.other)) || '').replace(/\s+/g, '').toUpperCase();
+  const idClean = (x) => Object.fromEntries(ID_KEYS.map(k => [k, String((x && x[k]) || '').trim()]));
+  const byGivenDesc = (a, b) => String(b.givenDate || '').localeCompare(String(a.givenDate || ''));
+  NHR.idNo = idNo;
+  NHR.idDocHist = (p) => ((p && p.idDocHistory) || []).filter(x => x && idNo(x));
+  NHR.idDocAt = (p, date) => {
+    const cur = (p && p.idDoc) || {}, hist = NHR.idDocHist(p);
+    if (!hist.length || !date || !cur.givenDate || cur.givenDate <= date) return cur;
+    return hist.filter(x => String(x.givenDate || '') <= date).sort(byGivenDesc)[0] || cur;
+  };
+  /* Փաստաթղթի ամսաթվին նրանում նշվող փաստաթուղթը դեռ տրված չէր (նախկինը լրացված չէ) */
+  NHR.idDocLate = (p, date) => { const x = NHR.idDocAt(p, date); return date && idNo(x) && x.givenDate && x.givenDate > date ? x : null; };
+  NHR.idDocLateText = (x, date) => `Փաստաթղթի ամսաթվին (${fmtDate(date)}) աշխատակցի փաստաթուղթը (№ ${x.passport || x.other}) դեռ տրված չէր՝ տրվել է ${fmtDate(x.givenDate)}-ին։ `
+    + 'Աշխատակցի քարտում՝ «Այլ տվյալներ» → «Նախկին փաստաթղթեր», ավելացրեք այն փաստաթուղթը, որը գործում էր այդ օրը․ այն ինքնաշխատ կնշվի փաստաթղթում';
+  /* Փաստաթղթում (ձևանմուշում) նշվող անձնագիրը՝ { doc, hist՝ նախկիններից է, late՝ փաստաթղթի ամսաթվին դեռ տրված չէր } */
+  NHR.idDocUsed = (d) => {
+    if (!d || !d.empId || !d.date || !/\{\{Document_Info\}\}/.test((window.NHR_TPL_TEXT || {})[d.code] || '')) return null;
+    const e = NHR.emp(d.empId), p = e ? NHR.empPerson(e) : null;
+    if (!p) return null;
+    const doc = NHR.idDocAt(p, d.date);
+    return idNo(doc) ? { doc, hist: doc !== p.idDoc, late: !!NHR.idDocLate(p, d.date) } : null;
+  };
+  NHR.idDocWarn = (d) => { const u = NHR.idDocUsed(d); return u && u.late ? NHR.idDocLateText(u.doc, d.date) : ''; };
+  /* Նախկինների մեջ՝ ավելացնել (նույն համարով արդեն կա՝ լրացվում են միայն դատարկ դաշտերը) */
+  NHR.idDocArchive = (p, x) => {
+    if (!idNo(x) || idNo(x) === idNo(p.idDoc)) return false;
+    const hist = p.idDocHistory = Array.isArray(p.idDocHistory) ? p.idDocHistory : [], row = idClean(x), ex = hist.find(y => idNo(y) === idNo(row));
+    if (ex) { for (const k of ID_KEYS) if (row[k] && !ex[k]) ex[k] = row[k]; return false; }
+    hist.push(row); return true;
+  };
+  /* Գործող փաստաթղթի դաշտերը փոխելիս՝ այլ համարով և ավելի ուշ տրված փաստաթուղթը նոր փաստաթուղթ է (նախկինը պահվում է),
+     իսկ նույն կամ ավելի վաղ տրման ամսաթվով՝ ուղղում */
+  NHR.idDocIsNew = (old, x) => !!(idNo(old) && idNo(x) && idNo(old) !== idNo(x) && old.givenDate && x.givenDate && x.givenDate > old.givenDate);
+  /* Ձևից (գրանցում)՝ գործող փաստաթուղթը։ «Վավեր է մինչև»-ը (գրանցման ձևում չկա) մնում է, եթե փաստաթուղթը նոր չէ */
+  NHR.idDocSet = (p, x) => {
+    const old = idClean(p.idDoc), row = idClean(x), isNew = NHR.idDocIsNew(old, row);
+    if (!row.validUntil && !isNew) row.validUntil = old.validUntil;
+    p.idDoc = row;
+    if (isNew) NHR.idDocArchive(p, old);
+    return isNew;
+  };
+  /* Նախկին փաստաթուղթ՝ ավելացնել կամ փոխել (orig՝ փոխվող տողի համարը)։ x-ում չեղած դաշտերը (օր.՝ «Վավեր է մինչև») մնում են */
+  NHR.idDocPutHist = (p, x, orig) => {
+    if (!idNo(x) || idNo(x) === idNo(p.idDoc)) return false;
+    const hist = Array.isArray(p.idDocHistory) ? p.idDocHistory : [];
+    let i = orig ? hist.findIndex(y => idNo(y) === orig) : -1;
+    if (i < 0) i = hist.findIndex(y => idNo(y) === idNo(x));
+    const base = i >= 0 ? hist[i] : {}, row = Object.fromEntries(ID_KEYS.map(k => [k, String((k in x ? x[k] : base[k]) || '').trim()]));
+    if (i >= 0) hist[i] = row; else hist.push(row);
+    p.idDocHistory = hist.filter((y, j) => hist.findIndex(z => idNo(z) === idNo(y)) === j);
+    return true;
+  };
+  /* Ստացված փաստաթուղթը (ՀԾ-ից) համադրվում է անձի փաստաթղթերի հետ, և ոչինչ չի կորչում․
+     same՝ նույն համարը (փոխվում են միայն ստացված ոչ դատարկ դաշտերը. ՀԾ-ում «Վավեր է մինչև» չկա), known՝ արդեն կա նախկինների մեջ (գործողը մնում է),
+     newer՝ ավելի ուշ է տրվել (դառնում է գործող, նախկինը՝ պատմություն), older՝ ավելի վաղ է տրվել (ավելանում է նախկինների մեջ),
+     other՝ նույն (կամ անհայտ) տրման ամսաթվով այլ համար (գործող է դառնում ստացվածը, նախկինը պահվում է) */
+  NHR.idDocPlan = (p, x) => {
+    const cur = (p && p.idDoc) || {};
+    if (!idNo(x)) return 'empty';
+    if (!idNo(cur)) return 'set';
+    if (idNo(cur) === idNo(x)) return 'same';
+    if (NHR.idDocHist(p).some(y => idNo(y) === idNo(x))) return 'known';
+    const a = String(x.givenDate || ''), b = String(cur.givenDate || '');
+    return a > b ? 'newer' : a < b ? 'older' : 'other';
+  };
+  NHR.idDocMerge = (p, x) => {
+    const act = NHR.idDocPlan(p, x), row = idClean(x), cur = idClean(p.idDoc);
+    if (act === 'set' || act === 'same') { for (const k of ID_KEYS) if (row[k]) cur[k] = row[k]; cur.passport = row.passport; cur.other = row.other; p.idDoc = cur; }
+    else if (act === 'newer' || act === 'other') { p.idDoc = row; NHR.idDocArchive(p, cur); }
+    else if (act === 'known' || act === 'older') NHR.idDocArchive(p, row);
+    return act;
+  };
+  /* Ներմուծման նախադիտման համար՝ ինչ կլինի փաստաթղթի հետ (դատարկ՝ փոփոխություն չկա կամ նույնն է) */
+  NHR.idDocPlanText = (p, x) => {
+    const act = NHR.idDocPlan(p, x), a = (x && (x.passport || x.other)) || '', b = (p && p.idDoc && (p.idDoc.passport || p.idDoc.other)) || '';
+    return act === 'known' ? `ՀԾ-ում նախկին փաստաթուղթն է (№ ${a})․ HR-ում գործողը կմնա № ${b}`
+      : act === 'older' ? `ՀԾ-ի փաստաթուղթը (№ ${a}) ավելի վաղ է տրվել, քան HR-ինը (№ ${b})․ կավելանա «Նախկին փաստաթղթեր»-ում, գործողը կմնա № ${b}`
+      : act === 'newer' ? `ՀԾ-ում նոր փաստաթուղթ է (№ ${a})․ HR-ի № ${b}-ը կտեղափոխվի «Նախկին փաստաթղթեր»`
+      : act === 'other' ? `Փաստաթղթի համարը տարբեր է (HR՝ № ${b}, ՀԾ՝ № ${a})․ գործող կդառնա ՀԾ-ինը, HR-ինը կպահվի «Նախկին փաստաթղթեր»-ում` : '';
+  };
 
   /* ---------- Checks on a person (Ե.3) ---------- */
   NHR.personWarnings = (p, asOf) => {
-    const w = [];
-    if (p.idDoc && p.idDoc.validUntil && p.idDoc.validUntil < (asOf || todayISO())) w.push(`Անձը հաստատող փաստաթղթի ժամկետը լրացել է ${fmtDate(p.idDoc.validUntil)}-ին`);
-    else if (p.idDoc && p.idDoc.givenDate && !p.idDoc.validUntil && diffDays(p.idDoc.givenDate, asOf || todayISO()) > 3652) w.push('Փաստաթուղթը տրվել է 10 տարուց ավելի առաջ');
+    const w = [], idd = NHR.idDocAt(p, asOf || todayISO());
+    if (idd.validUntil && idd.validUntil < (asOf || todayISO())) w.push(`Անձը հաստատող փաստաթղթի ժամկետը լրացել է ${fmtDate(idd.validUntil)}-ին`);
+    else if (idd.givenDate && !idd.validUntil && diffDays(idd.givenDate, asOf || todayISO()) > 3652) w.push('Փաստաթուղթը տրվել է 10 տարուց ավելի առաջ');
     if (p.ssn && p.birthday && p.gender) {
       const [y, m, d] = p.birthday.split('-').map(Number);
       const dd = +p.ssn.slice(0, 2), mm = +p.ssn.slice(2, 4), yy = +p.ssn.slice(4, 6);
@@ -3163,7 +3271,8 @@ window.NHR_DEMO = function () {
     if (s.status === 'local') return h('span', { class: 'chip', title: s.error }, 'Միայն HR-ում');
     return NHR.chip('Համաժամեցված', 'ok');
   };
-  NHR.docStatusChip = (d) => d.status === 'approved' ? NHR.chip('Հաստատված', 'stamp') : d.status === 'cancelled' ? NHR.chip('Չեղարկված', 'bad') : NHR.chip('Սևագիր', 'draft');
+  NHR.docStatusChip = (d) => d.status === 'approved' ? NHR.chip('Հաստատված', 'stamp') : d.status === 'cancelled' ? NHR.chip('Չեղարկված', 'bad')
+    : d.reopened ? NHR.chip('Խմբագրվում է', 'warn') : NHR.chip('Սևագիր', 'draft');
   NHR.table = (cols, rows, opts = {}) => {
     const tb = h('tbody');
     if (!rows.length) tb.appendChild(h('tr', null, h('td', { colspan: cols.length, class: 'empty' }, opts.empty || 'Տվյալներ չկան')));
@@ -3944,7 +4053,7 @@ window.NHR_TPL_TEXT = {
 "7.21": "{{Company_Name}}\n\nՀՐԱՄԱՆ № {{Order_Num}}\nԱՇԽԱՏԱՆՔԱՅԻՆ ՊԱՅՄԱՆԱԳԻՐԸ ԼՈՒԾԵԼՈՒ ՄԱՍԻՆ\n\n{{City}}\t{{Order_Date}}\n\nՂեկավարվելով ՀՀ աշխատանքային օրենսգրքի 109-րդ հոդվածի 1-ին մասի 12-րդ կետով և հիմք ընդունելով {{Basis_Ref}}՝\n\nՀՐԱՄԱՅՈՒՄ ԵՄ․\n\n1. {{Dismiss_Date}}-ին լուծել {{#If_Department}}«{{Department}}» ստորաբաժանման {{/If_Department}}{{Position}} {{Employee_Name}}ի հետ {{Contract_Date}}-ին կնքված № {{Contract_Num}} {{Contract_Kind}} պայմանագիրը՝ աշխատանքի ընդունվելիս կեղծ տեղեկություններ (փաստաթղթեր) ներկայացնելու հիմքով։\n2. Հաշվապահությանը՝ {{Dismiss_Date}}-ին {{Employee_Name}}ի հետ կատարել վերջնահաշվարկ{{#If_Unused}}՝ ներառյալ չօգտագործված ամենամյա արձակուրդի ({{Unused_Days}} օր) դրամական հատուցումը{{/If_Unused}}{{#If_Severance}}, և վճարել արձակման նպաստ՝ {{Severance_Text}}{{/If_Severance}}։\n3. Սույն հրամանն ուժի մեջ է մտնում ստորագրման պահից։\n\n{{Director_Title}}՝ _________________ {{Director_Name}}\n\nՀրամանին ծանոթացա՝ _________________ {{Employee_Name}}\t«___» ____________ 20___ թ.\n[նոր էջ]\nՈՐՈՇՈՒՄ № {{Dismiss_Decision_Num}}\n{{Company_Name}}-ի միակ հիմնադրի\nտնօրենին ազատելու մասին\n\n{{City}}\t{{Order_Date}}\n\nԵս՝ {{Company_Name}}-ի միակ հիմնադիր {{Founders_List}}, ղեկավարվելով ՀՀ աշխատանքային օրենսգրքի 109-րդ հոդվածի 1-ին մասի 12-րդ կետով և կազմակերպության կանոնադրությամբ, հիմք ընդունելով {{Basis_Ref}},\n\nՈՐՈՇԵՑԻ․\n\n1. {{Dismiss_Date}}-ին լուծել {{#If_Department}}«{{Department}}» ստորաբաժանման {{/If_Department}}{{Position}} {{Employee_Name}}ի հետ {{Contract_Date}}-ին կնքված № {{Contract_Num}} {{Contract_Kind}} պայմանագիրը՝ աշխատանքի ընդունվելիս կեղծ տեղեկություններ (փաստաթղթեր) ներկայացնելու հիմքով։\n2. Հաշվապահությանը՝ {{Dismiss_Date}}-ին {{Employee_Name}}ի հետ կատարել վերջնահաշվարկ{{#If_Unused}}՝ ներառյալ չօգտագործված ամենամյա արձակուրդի ({{Unused_Days}} օր) դրամական հատուցումը{{/If_Unused}}{{#If_Severance}}, և վճարել արձակման նպաստ՝ {{Severance_Text}}{{/If_Severance}}։\n3. Սույն որոշումն ուժի մեջ է մտնում ընդունման պահից։\n\nՄիակ հիմնադիր՝ _________________ {{Founders_List}}\n\nՈրոշմանը ծանոթացա՝ _________________ {{Employee_Name}}\t«___» ____________ 20___ թ.\n[նոր էջ]\nԱՐՁԱՆԱԳՐՈՒԹՅՈՒՆ № {{Dismiss_Decision_Num}}\n{{Company_Name}}-ի հիմնադիրների ընդհանուր ժողովի\n\n{{City}}\t{{Order_Date}}\n\nԺողովին մասնակցում են կազմակերպության բոլոր հիմնադիրները՝ {{Founders_List}}։ Ժողովն իրավազոր է։\nԺողովի նախագահ՝ {{Founder_Name}}։\n\nՕՐԱԿԱՐԳ․\n\n1. Կազմակերպության տնօրենին ազատելու մասին։\n\nԼՍԵՑԻՆ․\n\nԺողովի նախագահ {{Founder_Name}}ին, որն առաջարկեց {{Dismiss_Date}}-ին լուծել կազմակերպության {{Position}} {{Employee_Name}}ի հետ կնքված {{Contract_Kind}} պայմանագիրը՝ աշխատանքի ընդունվելիս կեղծ տեղեկություններ (փաստաթղթեր) ներկայացնելու հիմքով, հիմք ընդունելով {{Basis_Ref}}։\n\nՈՐՈՇԵՑԻՆ․\n\n1. ՀՀ աշխատանքային օրենսգրքի 109-րդ հոդվածի 1-ին մասի 12-րդ կետի համաձայն {{Dismiss_Date}}-ին լուծել {{#If_Department}}«{{Department}}» ստորաբաժանման {{/If_Department}}{{Position}} {{Employee_Name}}ի հետ {{Contract_Date}}-ին կնքված № {{Contract_Num}} {{Contract_Kind}} պայմանագիրը՝ աշխատանքի ընդունվելիս կեղծ տեղեկություններ (փաստաթղթեր) ներկայացնելու հիմքով։\n2. Հաշվապահությանը՝ {{Dismiss_Date}}-ին {{Employee_Name}}ի հետ կատարել վերջնահաշվարկ{{#If_Unused}}՝ ներառյալ չօգտագործված ամենամյա արձակուրդի ({{Unused_Days}} օր) դրամական հատուցումը{{/If_Unused}}{{#If_Severance}}, և վճարել արձակման նպաստ՝ {{Severance_Text}}{{/If_Severance}}։\n3. Սույն որոշումն ուժի մեջ է մտնում ընդունման պահից։\n\nՈրոշումն ընդունվել է միաձայն։\n\nԺողովի նախագահ՝ _________________ {{Founder_Name}}\n\nՀիմնադիրներ՝\n{{Founders_Sign}}\n\nՈրոշմանը ծանոթացա՝ _________________ {{Employee_Name}}\t«___» ____________ 20___ թ.\n[նոր էջ]\n{{Company_Name}}\n\nՏԵՂԵԿԱՆՔ\nՎԵՐՋՆԱՀԱՇՎԱՐԿԻ ՀԱՄԱՐ\n\n{{City}}\t{{Order_Date}}\n\nԱշխատող\t{{Employee_Name}}\nՏաբելային համար\t{{Tabel_Num}}\nՊաշտոն\t{{Position}}\nԸնդունման օր\t{{Start_Date}}\nԱշխատանքի վերջին օր\t{{Dismiss_Date}}\nԱզատման հիմք\t{{Dismiss_Ground_Short}}\nԱզատման փաստաթուղթ\t{{Dismiss_Order_Ref}}\nՍտաժը տվյալ գործատուի մոտ\t{{Service_Length}}\nՉօգտագործված ամենամյա արձակուրդ\t{{Unused_Days}} օր\nԱրձակման նպաստ\t{{Severance_Line}}\nԾանուցման ժամկետի խախտում\t{{Notice_Penalty_Line}}\nՎերջնահաշվարկի օր\t{{Dismiss_Date}}\n\nՎերջնահաշվարկը կատարվում է աշխատանքային պայմանագիրը լուծելու օրը (ՀՀ աշխատանքային օրենսգրքի 130-րդ հոդված)։ Միջին աշխատավարձը և վճարվող գումարները հաշվարկվում են հաշվապահական ծրագրում։\n\nԿազմեց՝ _________________\n{{#If_Chief}}Գլխավոր հաշվապահ՝ _________________ {{Chief_Accountant_Name}}{{/If_Chief}}\n[նոր էջ]\n{{Company_Name}}\n\nՏԵՂԵԿԱՆՔ\nԱՇԽԱՏԱՆՔԻ ՄԱՍԻՆ\n\n{{City}}\t{{Order_Date}}\n\nՏրվում է {{Employee_Name}}ին (ՀԾՀ՝ {{SSN}}) այն մասին, որ նա {{Start_Date}}-ից մինչև {{Dismiss_Date}}-ը աշխատել է {{#If_Company}}{{Company_Name}}-ում{{/If_Company}}{{#If_IE}}{{Company_Name}}ի մոտ{{/If_IE}}։\nԶբաղեցրած պաշտոնները՝\n{{Positions_List}}\nԱշխատավարձն ազատման օրվա դրությամբ կազմել է {{Salary_Line}}։\nԱշխատանքային պայմանագիրը լուծվել է {{Dismiss_Date}}-ին {{Dismiss_Reason}} (ՀՀ աշխատանքային օրենսգրքի {{Dismiss_Cite}})։ Հիմք՝ {{Dismiss_Order_Ref}}։\n{{#If_Ref_Text}}{{Ref_Text}}{{/If_Ref_Text}}\n{{#If_Statement}}Վճարված աշխատավարձի, պահված հարկերի և պարտադիր վճարների մասին տվյալները ներկայացված են կից քաղվածքում։{{/If_Statement}}\nՏեղեկանքը տրվում է ըստ պահանջի ներկայացնելու համար։\n\n{{#If_Head_Signs}}{{Director_Title}}՝ _________________ {{Director_Name}}{{/If_Head_Signs}}\n{{#If_Founder_Signs}}Հիմնադիր՝ _________________ {{Founder_Name}}{{/If_Founder_Signs}}\n{{#If_Chief}}Գլխավոր հաշվապահ՝ _________________ {{Chief_Accountant_Name}}{{/If_Chief}}\n",
 "9.2": "{{Company_Name}}\n^ ՀՎՀՀ՝ {{HVHH}}{{#If_Company_Address}}, {{Legal_Address}}{{/If_Company_Address}}\n{{#If_Company_Contacts}}^ {{Company_Contacts}}{{/If_Company_Contacts}}\n\nԵլից № {{Out_Num}}\t{{Action_Date}}\n\nՏԵՂԵԿԱՆՔ\nԱՇԽԱՏԱՎԱՐՁԻ ՄԱՍԻՆ\n\nՏրվում է {{Employee_Name}}ին (ծնված՝ {{Birth_Date}}, {{Document_Info}}, ՀԾՀ՝ {{SSN}}, բնակության հասցե՝ {{Residence_Address}}) առ այն, որ նա {{Work_Period_Text}} {{Company_Name}}-ում՝ {{#If_Department}}«{{Department}}» ստորաբաժանման {{/If_Department}}{{Position}}ի պաշտոնում։\n{{#If_Monthly_Salary}}Աշխատանքային պայմանագրով սահմանված ամսական աշխատավարձը (համախառն) {{Salary_Amount}} ({{Salary_Text}}) դրամ է։ {{/If_Monthly_Salary}}{{#If_Hourly_Salary}}Աշխատանքային պայմանագրով սահմանված ժամավճարը (համախառն) {{Salary_Amount}} ({{Salary_Text}}) դրամ է։ {{/If_Hourly_Salary}}Նրա աշխատավարձը {{Period_Text}} կազմել է (դրամ)՝\n\n{{Salary_Table}}\n\n{{#If_Avg}}Միջին ամսական աշխատավարձը՝ {{Avg_Gross}} դրամ, վճարվածը՝ {{Avg_Net}} դրամ։{{/If_Avg}}\nՏեղեկանքը տրվում է {{Cert_Purpose}} ներկայացնելու համար։\n\n{{Director_Title}}՝ _________________ {{Director_Name}}\n{{#If_Chief}}Գլխավոր հաշվապահ՝ _________________ {{Chief_Accountant_Name}}{{/If_Chief}}\n\nԿ. Տ.\n",
 "9.3": "{{Company_Name}}\n^ ՀՎՀՀ՝ {{HVHH}}{{#If_Company_Address}}, {{Legal_Address}}{{/If_Company_Address}}\n{{#If_Company_Contacts}}^ {{Company_Contacts}}{{/If_Company_Contacts}}\n\nԵլից № {{Out_Num}}\t{{Action_Date}}\n\nՏԵՂԵԿԱՆՔ\nԱՇԽԱՏԱՆՔԻ ՄԱՍԻՆ\n\nՏրվում է {{Employee_Name}}ին (ծնված՝ {{Birth_Date}}, {{Document_Info}}, ՀԾՀ՝ {{SSN}}, բնակության հասցե՝ {{Residence_Address}}) առ այն, որ նա {{Work_Period_Text}} {{Company_Name}}-ում՝ {{#If_Department}}«{{Department}}» ստորաբաժանման {{/If_Department}}{{Position}}ի պաշտոնում։\n{{#If_Hire_Order}}Աշխատանքի է ընդունվել {{Hire_Order_Ref}} հրամանով։{{/If_Hire_Order}}\n{{#If_Working}}Աշխատանքային պայմանագիրը կնքված է {{Contract_Term_Text}}։ Աշխատում է {{Work_Time_Text}}, աշխատանքը համարվում է {{Compatibility}}։{{/If_Working}}\n{{#If_Dismissed_Order}}Աշխատանքից ազատվել է {{Dismiss_Date}}-ին՝ {{Dismiss_Order_Ref}} հրամանով։{{/If_Dismissed_Order}}{{#If_Dismissed_No_Order}}Աշխատանքից ազատվել է {{Dismiss_Date}}-ին։{{/If_Dismissed_No_Order}}\n{{#If_Show_Monthly}}Ամսական աշխատավարձը (համախառն) {{Salary_Amount}} ({{Salary_Text}}) դրամ է։{{/If_Show_Monthly}}{{#If_Show_Hourly}}Ժամավճարը (համախառն) {{Salary_Amount}} ({{Salary_Text}}) դրամ է։{{/If_Show_Hourly}}\nՏեղեկանքը տրվում է {{Cert_Purpose}} ներկայացնելու համար։\n\n{{Director_Title}}՝ _________________ {{Director_Name}}\n\nԿ. Տ.\n",
-"9.4": "{{Company_Name_En}}\n^ Tax ID {{HVHH}}{{#If_Address_En}}, {{Company_Address_En}}{{/If_Address_En}}\n{{#If_Activity_En}}^ Activity address: {{Activity_Address_En}}{{/If_Activity_En}}\n{{#If_Contacts_En}}^ {{Contacts_En}}{{/If_Contacts_En}}\n\nRef. No. {{Out_Num_En}}\t{{Cert_Date_En}}\n\n{{To_Line_En}}\n\n{{#If_Employee_En}}CERTIFICATE OF EMPLOYMENT{{/If_Employee_En}}{{#If_Founder_En}}CERTIFICATE{{/If_Founder_En}}\n\nThis is to certify that {{Title_En}} {{Name_En}}{{#If_Birth_En}}, born on {{Birth_Date_En}}{{/If_Birth_En}}, holder of passport No. {{Passport_No}}{{#If_Pass_Details_En}}{{Pass_Details_En}}{{/If_Pass_Details_En}}{{#If_SSN_En}}, Public Services Number {{SSN}}{{/If_SSN_En}}, residing at {{Address_En}}, {{#If_Employee_En}}has been employed by {{Company_Name_En}} since {{Since_En}} and currently holds the position of {{Position_En}}.{{/If_Employee_En}}{{#If_Founder_En}}is {{Founder_Text_En}} ({{Company_Reg_En}}).{{/If_Founder_En}}\n\n{{#If_Employee_En}}{{He_She}} is employed {{Work_Load_En}} under {{Contract_Kind_En}}.{{/If_Employee_En}}{{#If_Net_En}} {{His_Her}} net monthly salary is AMD {{Net_En}} ({{Net_Words_En}} Armenian drams).{{/If_Net_En}}{{#If_Monthly_En}} {{His_Her}} gross monthly salary is AMD {{Salary_En}} ({{Salary_Words_En}} Armenian drams).{{/If_Monthly_En}}{{#If_Both_En}} {{His_Her}} gross monthly salary is AMD {{Salary_En}} ({{Salary_Words_En}} Armenian drams); the net amount after taxes is AMD {{Net_En}}.{{/If_Both_En}}{{#If_Hourly_En}} {{His_Her}} gross hourly wage is AMD {{Salary_En}} ({{Salary_Words_En}} Armenian drams).{{/If_Hourly_En}}{{#If_Income_En}}The average monthly income of {{Company_Name_En}} is AMD {{Income_En}} ({{Income_Words_En}} Armenian drams).{{/If_Income_En}}\n\n{{#If_Leave_En}}{{He_She}} has been granted {{Leave_Kind_En}} from {{Trip_From_En}} to {{Trip_To_En}} inclusive in order to travel to {{Trip_Dest_En}} for the purpose of {{Purpose_En}}. {{His_Her}} position will be retained during this period, and {{he_she}} is expected to resume work on {{Return_En}}.{{/If_Leave_En}}\n{{#If_Trip_En}}{{Title_En}} {{Surname_En}} is being sent on a business trip to {{Trip_Dest_En}} from {{Trip_From_En}} to {{Trip_To_En}} for the purpose of {{Purpose_En}}. {{He_She}} retains {{his_her}} position and salary for the period of the trip and will resume work on {{Return_En}}.{{/If_Trip_En}}{{#If_Founder_Trip_En}}{{Title_En}} {{Surname_En}} is planning to travel to {{Trip_Dest_En}} from {{Trip_From_En}} to {{Trip_To_En}} for the purpose of {{Purpose_En}}.{{/If_Founder_Trip_En}}{{#If_Founder_Business_En}}{{Title_En}} {{Surname_En}} is travelling to {{Trip_Dest_En}} from {{Trip_From_En}} to {{Trip_To_En}} on behalf of {{Company_Name_En}} for the purpose of {{Purpose_En}}.{{/If_Founder_Business_En}}{{#If_Costs_En}} All travel, accommodation and daily allowance costs will be covered by {{Company_Name_En}}.{{/If_Costs_En}}\n\n{{#If_Submit_En}}This certificate is issued at {{his_her}} request for submission to {{Submit_To_En}}.{{/If_Submit_En}}{{#If_No_Submit_En}}This certificate is issued at {{his_her}} request.{{/If_No_Submit_En}}{{#If_Contact_En}} For additional information, please contact us at {{Contact_En}}.{{/If_Contact_En}}{{#If_Contact_Person_En}} The contact person is {{Contact_Person_En}}.{{/If_Contact_Person_En}}\n\n{{Director_Title_En}}: _________________ {{Director_Name_En}}\n\nL.S.\n",
+"9.4": "{{Company_Name_En}}\n^ Tax ID {{HVHH}}{{#If_Address_En}}, {{Company_Address_En}}{{/If_Address_En}}\n{{#If_Activity_En}}^ Activity address: {{Activity_Address_En}}{{/If_Activity_En}}\n{{#If_Contacts_En}}^ {{Contacts_En}}{{/If_Contacts_En}}\n\nRef. No. {{Out_Num_En}}\t{{Cert_Date_En}}\n\n{{To_Line_En}}\n\n{{#If_Employee_En}}CERTIFICATE OF EMPLOYMENT{{/If_Employee_En}}{{#If_Founder_En}}CERTIFICATE{{/If_Founder_En}}\n\nThis is to certify that {{Title_En}} {{Name_En}}{{#If_Birth_En}}, born on {{Birth_Date_En}}{{/If_Birth_En}}, holder of passport No. {{Passport_No}}{{#If_Pass_Details_En}}{{Pass_Details_En}}{{/If_Pass_Details_En}}{{#If_SSN_En}}, Public Services Number {{SSN}}{{/If_SSN_En}}, residing at {{Address_En}}, {{#If_Employee_En}}has been employed by {{Company_Name_En}} since {{Since_En}} and currently holds the position of {{Position_En}}.{{/If_Employee_En}}{{#If_Founder_En}}is {{Founder_Text_En}} ({{Company_Reg_En}}).{{/If_Founder_En}}\n\n{{#If_Net_En}}{{His_Her}} net monthly salary is AMD {{Net_En}} ({{Net_Words_En}} Armenian drams).{{/If_Net_En}}{{#If_Monthly_En}}{{His_Her}} gross monthly salary is AMD {{Salary_En}} ({{Salary_Words_En}} Armenian drams).{{/If_Monthly_En}}{{#If_Both_En}}{{His_Her}} gross monthly salary is AMD {{Salary_En}} ({{Salary_Words_En}} Armenian drams); the net amount after taxes is AMD {{Net_En}}.{{/If_Both_En}}{{#If_Hourly_En}}{{His_Her}} gross hourly wage is AMD {{Salary_En}} ({{Salary_Words_En}} Armenian drams).{{/If_Hourly_En}}{{#If_Income_En}}The average monthly income of {{Company_Name_En}} is AMD {{Income_En}} ({{Income_Words_En}} Armenian drams).{{/If_Income_En}}\n\n{{#If_Leave_En}}{{He_She}} has been granted {{Leave_Kind_En}} from {{Trip_From_En}} to {{Trip_To_En}} inclusive in order to travel to {{Trip_Dest_En}} for the purpose of {{Purpose_En}}. {{His_Her}} position will be retained during this period, and {{he_she}} is expected to resume work on {{Return_En}}.{{/If_Leave_En}}\n{{#If_Trip_En}}{{Title_En}} {{Surname_En}} is being sent on a business trip to {{Trip_Dest_En}} from {{Trip_From_En}} to {{Trip_To_En}} for the purpose of {{Purpose_En}}. {{He_She}} retains {{his_her}} position and salary for the period of the trip and will resume work on {{Return_En}}.{{/If_Trip_En}}{{#If_Founder_Trip_En}}{{Title_En}} {{Surname_En}} is planning to travel to {{Trip_Dest_En}} from {{Trip_From_En}} to {{Trip_To_En}} for the purpose of {{Purpose_En}}.{{/If_Founder_Trip_En}}{{#If_Founder_Business_En}}{{Title_En}} {{Surname_En}} is travelling to {{Trip_Dest_En}} from {{Trip_From_En}} to {{Trip_To_En}} on behalf of {{Company_Name_En}} for the purpose of {{Purpose_En}}.{{/If_Founder_Business_En}}{{#If_Costs_En}} All travel, accommodation and daily allowance costs will be covered by {{Company_Name_En}}.{{/If_Costs_En}}\n\n{{#If_Submit_En}}This certificate is issued at {{his_her}} request for submission to {{Submit_To_En}}.{{/If_Submit_En}}{{#If_No_Submit_En}}This certificate is issued at {{his_her}} request.{{/If_No_Submit_En}}{{#If_Contact_En}} For additional information, please contact us at {{Contact_En}}.{{/If_Contact_En}}{{#If_Contact_Person_En}} The contact person is {{Contact_Person_En}}.{{/If_Contact_Person_En}}\n\n{{Director_Title_En}}: _________________ {{Director_Name_En}}\n\nL.S.\n",
 "9.5": "{{Company_Name}}\n^ ՀՎՀՀ՝ {{HVHH}}{{#If_Company_Address}}, {{Legal_Address}}{{/If_Company_Address}}\n{{#If_Company_Contacts}}^ {{Company_Contacts}}{{/If_Company_Contacts}}\n\nԵլից № {{Out_Num}}\t{{Action_Date}}\n\n> ՀՀ արդարադատության նախարարության\n> հարկադիր կատարումն ապահովող ծառայության\n> {{Enf_Unit}}\n{{#If_Enf_Officer}}> հարկադիր կատարող {{Enf_Officer}}ին{{/If_Enf_Officer}}\n\nՏԵՂԵԿԱՆՔ\n\n{{#If_Enf_Ref}}{{Enf_Ref_Text}}, {{/If_Enf_Ref}}«Կատարողական վարույթի մասին» ՀՀ օրենքի 18-րդ և 101-րդ հոդվածների համաձայն՝ տեղեկացնում ենք․\n1. Պարտապան {{Employee_Name}}ը ({{Document_Info}}, ՀԾՀ՝ {{SSN}}, բնակության հասցե՝ {{Residence_Address}}) {{Work_Period_Text}} {{Company_Name}}-ում՝ {{Position}}ի պաշտոնում։\n2. {{#If_Monthly_Salary}}Ամսական աշխատավարձը (համախառն) {{Salary_Amount}} դրամ է։{{/If_Monthly_Salary}}{{#If_Hourly_Salary}}Ժամավճարը (համախառն) {{Salary_Amount}} դրամ է։{{/If_Hourly_Salary}}{{#If_Pay_Terms}} Աշխատավարձը վճարվում է {{Pay_Terms}}։{{/If_Pay_Terms}} Եկամուտները և պահումները (դրամ)՝\n\n{{Enf_Table}}\n\n{{#If_Withheld}}3. Պահված գումարները փոխանցվել են Ծառայության դեպոզիտային հաշվին։{{/If_Withheld}}\n{{#If_No_Withheld}}3. Նշված ժամանակահատվածում սույն կատարողական վարույթով պահումներ չեն կատարվել։{{/If_No_Withheld}}\n{{#If_Dismissed}}4. Աշխատանքից ազատվելուց հետո պարտապանին եկամուտներ չեն վճարվում։{{/If_Dismissed}}\n{{#If_Enf_Note}}{{Enf_Note}}{{/If_Enf_Note}}\n\n{{Director_Title}}՝ _________________ {{Director_Name}}\n{{#If_Chief}}Գլխավոր հաշվապահ՝ _________________ {{Chief_Accountant_Name}}{{/If_Chief}}\n\nԿ. Տ.\n{{#If_Executor}}Կատարող՝ {{Executor}}{{/If_Executor}}\n"
 };
 
@@ -4346,7 +4455,8 @@ window.NHR_TPL_TEXT = {
     const terms = d.__terms ? d.__terms : def.kind === 'hire' ? (e ? Object.assign({}, t, filled) : f) : t;
     const desc = NHR.desc(terms.desc), wk = refRow('workWeek', terms.workWeek), fee = NHR.feeType(o.id, terms.feeCode);
     const sf = fee ? refRow('salaryForm', fee.tabel) : null, prob = refRow('probation', terms.probation || '0'), term = refRow('contractTerm', terms.term);
-    const hrs = NHR.hours(o, terms), idd = p && p.idDoc, idNum = idd && (idd.passport || idd.other);
+    /* անձնագիրը՝ փաստաթղթի ամսաթվին գործողը (փոխված անձնագրի դեպքում ավելի վաղ ամսաթվով փաստաթղթում՝ նախկինը) */
+    const hrs = NHR.hours(o, terms), idd = p ? NHR.idDocAt(p, d.date || f.dateOn || NHR.todayISO()) : null, idNum = idd && (idd.passport || idd.other);
     const bank = NHR.bankByAccount(o.bankAccount), wpl = NHR.workplace(o.id, terms.workplace), dt = NHR.docDate(d.date);
     const rest = (terms.restDays || []).slice().sort().map(c => NHR.refName('weekdays', c).toLowerCase());
     /* 1.2-ում՝ փաստաթղթում պահված նշանակման որոշումը (հաջորդ ղեկավարի որոշումը այն չի փոխում) */
@@ -6848,12 +6958,14 @@ window.NHR_EMBASSIES = [
   const posEnOf = (e, date) => { const r = posRow(e, date); return r ? (String(r.en || '').trim() || NHR.posEnAuto(r.name)) : ''; };
   /* Արտասահմանյան անձնագիր՝ քարտի «Արտասահմանյան անձնագրի համար»-ը կամ, եթե հիմնական փաստաթուղթը անձնագիր է, նրա համարը */
   const PASS_TYPES = ['1', '6', '7', '8'];
-  const passOf = (p) => String((p && p.passIntl) || '').trim() || (p && p.idDoc && PASS_TYPES.includes(String(p.idDoc.type)) ? String(p.idDoc.passport || '').trim() : '');
+  /* հիմնական փաստաթուղթը՝ տեղեկանքի ամսաթվին գործողը (նախկին փաստաթղթերից, եթե անձնագիրը հետո է փոխվել) */
+  const mainDoc = (p, at) => (p ? NHR.idDocAt(p, at || today()) : null) || {};
+  const passOf = (p, at) => { const d = mainDoc(p, at); return String((p && p.passIntl) || '').trim() || (p && PASS_TYPES.includes(String(d.type)) ? String(d.passport || '').trim() : ''); };
   /* Անձնագրի տրման և վավերականության ամսաթվերը՝ արտասահմանյան անձնագրինը (քարտում) կամ հիմնական փաստաթղթինը, եթե այն անձնագիր է */
-  const passDates = (p) => {
+  const passDates = (p, at) => {
     if (!p) return { given: '', until: '', by: '' };
     if (String(p.passIntl || '').trim()) return { given: p.passIntlGiven || '', until: p.passIntlUntil || '', by: p.passIntlBy || '' };
-    const d = p.idDoc || {};
+    const d = mainDoc(p, at);
     return PASS_TYPES.includes(String(d.type)) ? { given: d.givenDate || '', until: d.validUntil || '', by: d.givenBy || '' } : { given: '', until: '', by: '' };
   };
   /* Բնակության հասցեն՝ բնակության վայրը (եթե տարբեր է հաշվառման վայրից), այլապես՝ հաշվառման հասցեն */
@@ -7083,7 +7195,7 @@ window.NHR_EMBASSIES = [
       const val = (k, auto) => (f[k] != null ? String(f[k]).trim() : auto);
       const amount = Number(t.amount) || 0, company = val('nameEn', NHR.orgNameEn(o));
       const np = founder ? fpName(fp) : { first: p ? p.first : '', last: p ? p.last : '' };
-      const pd = founder ? fpPass(fp) : Object.assign({ no: passOf(p) }, passDates(p));
+      const pd = founder ? fpPass(fp) : Object.assign({ no: passOf(p, at) }, passDates(p, at));
       const pGiven = f.passGiven != null ? f.passGiven : pd.given, pUntil = f.passUntil != null ? f.passUntil : pd.until, pBy = val('passBy', pd.by || '');
       const byEn = pBy ? (/^\d+$/.test(pBy) ? `authority ${pBy}` : pBy) : '';
       const mode = f.salaryMode || (f.showSalary === false ? 'none' : 'net');
@@ -7244,8 +7356,8 @@ window.NHR_EMBASSIES = [
       } else if (d.code === '9.4') {
         f.latFirst = p ? (String(p.latFirst || '').trim() || NHR.latin(p.first)) : '';
         f.latLast = p ? (String(p.latLast || '').trim() || NHR.latin(p.last)) : '';
-        f.passNo = passOf(p); f.posEn = e ? posEnOf(e, d.date || today()) : '';
-        const pd = passDates(p); f.passGiven = pd.given; f.passUntil = pd.until; f.passBy = pd.by;
+        f.passNo = passOf(p, d.date); f.posEn = e ? posEnOf(e, d.date || today()) : '';
+        const pd = passDates(p, d.date); f.passGiven = pd.given; f.passUntil = pd.until; f.passBy = pd.by;
         f.addrEn = p ? (String(p.addrEn || '').trim() || NHR.personAddressEnAuto(p)) : '';
       }
     }
@@ -7277,8 +7389,9 @@ window.NHR_EMBASSIES = [
     if (p) {
       if (v('latFirst')) p.latFirst = v('latFirst');
       if (v('latLast')) p.latLast = v('latLast');
-      const main = p.idDoc && PASS_TYPES.includes(String(p.idDoc.type)) ? String(p.idDoc.passport || '').trim() : '';
-      if (v('passNo') && v('passNo') !== main) { p.passIntl = v('passNo'); p.passIntlGiven = f.passGiven || ''; p.passIntlUntil = f.passUntil || ''; p.passIntlBy = v('passBy'); }
+      /* անձի հիմնական փաստաթղթերից (գործող կամ նախկին) որևէ մեկը չէ՝ արտասահմանյան անձնագիր է */
+      const mains = [p.idDoc].concat(NHR.idDocHist(p)).filter(x => x && PASS_TYPES.includes(String(x.type))).map(x => NHR.idNo(x));
+      if (v('passNo') && !mains.includes(NHR.idNo({ passport: v('passNo') }))) { p.passIntl = v('passNo'); p.passIntlGiven = f.passGiven || ''; p.passIntlUntil = f.passUntil || ''; p.passIntlBy = v('passBy'); }
       if (v('addrEn') && v('addrEn') !== NHR.personAddressEnAuto(p)) p.addrEn = v('addrEn');
     }
     /* հիմնադրի լատինատառ անունը, արտասահմանյան անձնագիրը, հասցեն՝ կազմակերպության քարտի «Մասնակիցներ»-ում */
@@ -7353,7 +7466,7 @@ window.NHR_EMBASSIES = [
     if (e && d.date && d.date > NHR.addDays(today(), 31)) warns.push('Տեղեկանքի ամսաթիվը ապագայում է');
     /* Անձնագրային տվյալները, ՀԾՀ-ն և բնակության հասցեն՝ բոլոր տեղեկանքներում (պատվիրատուի որոշմամբ, 2026-10-22) */
     if (p) {
-      const idd = p.idDoc || {}, miss = [];
+      const idd = mainDoc(p, d.date), miss = [];
       if (d.code !== '9.4' && !String(idd.passport || idd.other || '').trim()) miss.push('անձը հաստատող փաստաթղթի համարը');
       if (d.code !== '9.4' && String(idd.passport || idd.other || '').trim() && !(idd.givenDate && idd.givenBy)) miss.push('փաստաթղթի տրման ամսաթիվը կամ ում կողմից է տրվել');
       if (!String(p.ssn || '').trim()) miss.push('ՀԾՀ-ն');
@@ -7661,7 +7774,7 @@ window.NHR_EMBASSIES = [
     const S = NHR.state(), empName = (id) => { const e = NHR.emp(id); return e ? NHR.shortName(NHR.empPerson(e)) : ''; };
     if (r.page === 'employee') return empName(r.id) || TITLES.employee;
     if (r.page === 'doc') { const d = S.documents.find(x => x.id === r.id); if (!d) return TITLES.doc; const who = d.empId ? empName(d.empId) : NHR.docEmpName(d); return `${d.code}${who ? ' · ' + who : ''}`; }
-    if (r.page === 'newdoc') return r.code ? `${r.code} · նոր` : TITLES.docs;
+    if (r.page === 'newdoc') return r.code ? `${r.code} · ${r.docId ? 'խմբագրում' : 'նոր'}` : TITLES.docs;
     if (r.page === 'docs' && r.group) { const g = CAT.groups.find(x => x.code === r.group); return g ? `${g.code}. ${g.name}` : TITLES.docs; }
     if (r.page === 'register') return r.id ? `${empName(r.id)} · տվյալներ` : r.kind === 'prov' ? 'Նոր ծառայություն մատուցող' : 'Նոր աշխատակից';
     if (r.page === 'contract') return `${r.code} · պայմանագիր`;
@@ -8401,7 +8514,8 @@ window.NHR_EMBASSIES = [
         : { cls: 'warn', short: `Ժամկետ՝ ${end}`, text: `Պայմանագրի ժամկետը լրանում է ${end}` });
     }
     const p = NHR.empPerson(e);
-    if (p && p.idDoc && p.idDoc.validUntil && p.idDoc.validUntil < date) out.push({ cls: 'bad', short: 'Անձնագիրը ժամկետանց', text: 'Անձը հաստատող փաստաթուղթը ժամկետանց է' });
+    const idd = p ? NHR.idDocAt(p, date) : null;
+    if (idd && idd.validUntil && idd.validUntil < date) out.push({ cls: 'bad', short: 'Անձնագիրը ժամկետանց', text: 'Անձը հաստատող փաստաթուղթը ժամկետանց է' });
     return out;
   }
   NHR.reminders = reminders;
@@ -8463,8 +8577,8 @@ window.NHR_EMBASSIES = [
      փաստաթուղթ և ուսուցում չկա. նրանց սևագրերը ջնջվում են, անձը՝ եթե այլ աշխատանք չունի */
   NHR.empDeleteBlock = (e) => {
     const S = NHR.state();
-    const n = S.documents.filter(d => d.empId === e.id && d.status !== 'draft').length;
-    if (n) return `ունի հաստատված կամ չեղարկված փաստաթուղթ (${n})․ ազատելու համար՝ «7. Աշխատանքի ազատում»`;
+    const n = S.documents.filter(d => d.empId === e.id && (d.status !== 'draft' || d.reopened)).length;
+    if (n) return `ունի հաստատված, չեղարկված կամ խմբագրվող փաստաթուղթ (${n})․ ազատելու համար՝ «7. Աշխատանքի ազատում», ջնջելու համար՝ նախ ջնջեք փաստաթղթերը`;
     if ((S.trainings || []).some(t => t.empId === e.id)) return 'ունի ուսուցումներ';
     return '';
   };
@@ -8704,6 +8818,74 @@ window.NHR_EMBASSIES = [
   }
   NHR.docLink = docLink;
 
+  /* Նախկին փաստաթղթեր․ ավելի վաղ ամսաթվով պայմանագրում, հրամանում, տեղեկանքում նշվում է այդ օրը գործողը (ուշ գրանցում, փոխված անձնագիր)։
+     Գործողը (վերևի դաշտերը) ՀԾ-ի համար է․ ՀԾ-ում մեկ փաստաթուղթ է */
+  const idRowOf = (x) => { const pass = ['1', '6', '7', '8'].includes(String(x.type)), no = String(x.number || '').trim();
+    return { type: x.type, passport: pass ? no : '', other: pass ? '' : no, givenDate: x.givenDate || '', givenBy: String(x.givenBy || '').trim(), validUntil: x.validUntil || '' }; };
+  function idDocForm(x) {
+    return h('div', { class: 'form' },
+      field('Փաստաթղթի տեսակ', sel(x, 'type', NHR.refOpts('idDocType', false), { empty: false }), { cls: 'w2' }),
+      field('Համար', inp(x, 'number', { code: true }), { req: true }),
+      field('Տրման ամսաթիվ', inp(x, 'givenDate', { type: 'date' }), { req: true }),
+      field('Ում կողմից է տրվել', inp(x, 'givenBy', { code: true })),
+      field('Վավեր է (էր) մինչև', inp(x, 'validUntil', { type: 'date' })));
+  }
+  function idDocPanel(ro) {
+    const redraw = () => NHR.rerender();
+    const cur = wp.idDoc || {}, hist = NHR.idDocHist(wp).slice().sort((a, b) => String(b.givenDate || '').localeCompare(String(a.givenDate || '')));
+    const all = [cur].concat(hist).filter(x => NHR.idNo(x));
+    /* գործել է՝ տրման օրից մինչև հաջորդ (ավելի ուշ տրված) փաստաթղթի տրման նախորդ օրը */
+    const until = (x) => { const n = all.map(y => y.givenDate).filter(g => g && x.givenDate && g > x.givenDate).sort()[0]; return n ? NHR.addDays(n, -1) : ''; };
+    const noOf = (x) => x.passport || x.other || '';
+    const modal = (row) => {
+      const x = row ? { type: row.type || '5', number: noOf(row), givenDate: row.givenDate || '', givenBy: row.givenBy || '', validUntil: row.validUntil || '' }
+        : { type: cur.type || '5', number: '', givenDate: '', givenBy: '', validUntil: '' };
+      NHR.modal({ title: row ? `Նախկին փաստաթուղթ՝ № ${noOf(row)}` : 'Նախկին փաստաթուղթ', body: h('div', { style: { display: 'grid', gap: '12px' } },
+        h('div', { class: 'muted small' }, 'Այն փաստաթուղթը, որը գործել է ավելի վաղ։ Այդ ժամանակահատվածի ամսաթվով պայմանագրում, հրամանում և տեղեկանքում ինքնաշխատ կնշվի այս փաստաթուղթը։'),
+        idDocForm(x)),
+        actions: [{ label: 'Չեղարկել' }, { label: 'Լավ', cls: 'primary', onClick: () => {
+          const r = idRowOf(x);
+          if (!NHR.idNo(r)) { NHR.toast('Լրացրեք փաստաթղթի համարը'); return false; }
+          if (!r.givenDate) { NHR.toast('Լրացրեք տրման ամսաթիվը․ դրանով է որոշվում, թե որ փաստաթղթերում է այն նշվում'); return false; }
+          if (NHR.idNo(r) === NHR.idNo(cur)) { NHR.toast('Սա գործող փաստաթուղթն է (վերևի դաշտերում)'); return false; }
+          if (cur.givenDate && r.givenDate >= cur.givenDate) { NHR.toast(`Նախկին փաստաթուղթը պետք է տրված լինի գործողից (${NHR.fmtDate(cur.givenDate)}) շուտ`); return false; }
+          if (!row && NHR.idDocHist(wp).some(y => NHR.idNo(y) === NHR.idNo(r))) { NHR.toast('Այս համարով նախկին փաստաթուղթ արդեն կա'); return false; }
+          NHR.idDocPutHist(wp, r, row ? NHR.idNo(row) : ''); mark(); redraw();
+        } }] });
+    };
+    /* «Փաստաթուղթը փոխվել է»՝ գործողը տեղափոխվում է նախկինների մեջ, իսկ նորը դառնում է գործող */
+    const replace = () => {
+      const x = { type: cur.type || '5', number: '', givenDate: '', givenBy: '', validUntil: '' };
+      NHR.modal({ title: 'Փաստաթուղթը փոխվել է', body: h('div', { style: { display: 'grid', gap: '12px' } },
+        h('div', { class: 'muted small' }, `Լրացրեք նոր փաստաթղթի տվյալները։ Գործողը (№ ${noOf(cur)}) կտեղափոխվի «Նախկին փաստաթղթեր» և կնշվի մինչև նորի տրման օրը կազմված փաստաթղթերում։`),
+        idDocForm(x)),
+        actions: [{ label: 'Չեղարկել' }, { label: 'Լավ', cls: 'primary', onClick: () => {
+          const r = idRowOf(x);
+          if (!NHR.idNo(r)) { NHR.toast('Լրացրեք նոր փաստաթղթի համարը'); return false; }
+          if (!r.givenDate) { NHR.toast('Լրացրեք նոր փաստաթղթի տրման ամսաթիվը'); return false; }
+          if (NHR.idNo(r) === NHR.idNo(cur)) { NHR.toast('Համարը նույնն է, ինչ գործող փաստաթղթինը․ ուղղումը արեք վերևի դաշտերում'); return false; }
+          if (cur.givenDate && r.givenDate <= cur.givenDate) { NHR.toast(`Նոր փաստաթուղթը պետք է տրված լինի գործողից (${NHR.fmtDate(cur.givenDate)}) հետո`); return false; }
+          const old = wp.idDoc; wp.idDoc = r; NHR.idDocArchive(wp, old); mark(); redraw();
+          NHR.toast('Նոր փաստաթուղթը լրացվեց․ սեղմեք «Պահպանել»');
+        } }] });
+    };
+    const del = (row) => NHR.confirm('Հեռացնել նախկին փաստաթուղթը', `№ ${noOf(row)} փաստաթուղթը կհեռացվի։ Այդ ժամանակահատվածի փաստաթղթերում կնշվի գործողը։`, 'Հեռացնել',
+      () => { wp.idDocHistory = (wp.idDocHistory || []).filter(y => y !== row); mark(); redraw(); }, 'danger');
+    return panel('Նախկին փաստաթղթեր', hist.length
+      ? table([
+          { th: 'Տեսակ', get: x => NHR.refName('idDocType', x.type) },
+          { th: 'Համար', cls: 'code', get: x => noOf(x) },
+          { th: 'Տրվել է', cls: 'code', get: x => [NHR.fmtDate(x.givenDate), x.givenBy ? ` · ${x.givenBy}` : ''].join('') },
+          { th: 'Վավեր էր մինչև', cls: 'code', get: x => NHR.fmtDate(x.validUntil) || '—' },
+          { th: 'Նշվում է փաստաթղթերում', get: x => x.givenDate ? `${NHR.fmtDate(x.givenDate)} – ${until(x) ? NHR.fmtDate(until(x)) : '…'}` : (until(x) ? `մինչև ${NHR.fmtDate(until(x))}` : '—') },
+          ro ? null : { th: '', get: x => h('span', { class: 'row', style: { gap: '4px', flexWrap: 'nowrap' } }, btn('Փոխել', (ev) => { ev.stopPropagation(); modal(x); }, 'ghost sm'), btn('Հեռացնել', (ev) => { ev.stopPropagation(); del(x); }, 'ghost danger sm')) }
+        ].filter(Boolean), hist)
+      : h('div', { class: 'muted' }, 'Չկա։ Եթե աշխատակիցը փոխել է անձնագիրը (կամ ուշ գրանցելիս պարզվել է, որ ընդունման օրը այլ փաստաթուղթ ուներ), այստեղ պահեք նախկինը․ ավելի վաղ ամսաթվով պայմանագրում, հրամանում և տեղեկանքում կնշվի այդ օրը գործողը, իսկ ՀԾ-ի համար՝ միշտ գործողը։'),
+      { flush: !!hist.length, actions: ro ? null : h('span', { class: 'row', style: { gap: '6px' } },
+        NHR.idNo(cur) ? btn('Փաստաթուղթը փոխվել է', replace, 'sm', 'edit') : null,
+        btn('Ավելացնել նախկին', () => modal(null), 'sm', 'plus')) });
+  }
+
   function tabOther(ro) {
     const bank = NHR.bankByAccount(wp.depositAcc);
     const edu = wp.education;
@@ -8713,7 +8895,7 @@ window.NHR_EMBASSIES = [
         panel('Փաստաթղթեր և հաշիվ', h('div', { class: 'form' },
           field('Աշխատակցի հաշիվը բանկում', inp(wp, 'depositAcc', { ro, code: true, onInput: mark }), { xml: 'DepositAcc', hint: bank ? bank.name : 'Բանկը որոշվում է առաջին 3 նիշով' }),
           field('Հանրային ծառայությունների համարանիշ', inp(wp, 'ssn', { ro, code: true, onInput: mark }), { xml: 'SocCardNumber' }),
-          field('Անձը հաստատող փաստաթղթի տեսակ', sel(wp.idDoc, 'type', NHR.refOpts('idDocType'), { ro, onChange: mark }), { xml: 'IDDocType', cls: 'w2' }),
+          field('Անձը հաստատող փաստաթղթի տեսակ', sel(wp.idDoc, 'type', NHR.refOpts('idDocType'), { ro, onChange: mark }), { xml: 'IDDocType', cls: 'w2', hint: 'Գործող փաստաթուղթը (ՀԾ-ի համար). նախկինները՝ ներքևում' }),
           field('Անձնագրի համար', inp(wp.idDoc, 'passport', { ro, code: true, onInput: mark }), { xml: 'Passport' }),
           field('Այլ փաստաթղթի համար', inp(wp.idDoc, 'other', { ro, code: true, onInput: mark }), { xml: 'OtherDocumentNumber' }),
           field('Տրման ամսաթիվ', inp(wp.idDoc, 'givenDate', { ro, type: 'date', onInput: mark }), { xml: 'GivenDate' }),
@@ -8732,6 +8914,7 @@ window.NHR_EMBASSIES = [
           field('Ընտանեկան դրություն', sel(wp, 'marital', NHR.refOpts('maritalStatus', false), { ro, onChange: mark }), { xml: 'MaritalStatus' }),
           field('Այլ տեղեկություն', area(wp, 'otherInfo', { ro }), { cls: 'wall', hint: 'Օր.՝ ուսանող է, երկքաղաքացի է' })
         ))),
+      idDocPanel(ro),
       panel('Կրթություն', h('div', { style: { display: 'grid', gap: '12px' } },
         edu.length ? edu.map((x, i) => h('div', { class: 'form', style: { alignItems: 'end' } },
           field('Կրթություն', sel(x, 'level', NHR.refOpts('education', false), { ro, onChange: mark }), { xml: 'Education' }),
@@ -8940,9 +9123,11 @@ window.NHR_EMBASSIES = [
     tabsList.push(['files', 'Ֆայլեր']);
     const setR = (patch) => NHR.go(Object.assign({}, r, patch));
     const save = () => {
-      Object.assign(NHR.empPerson(e), JSON.parse(JSON.stringify(wp)));
+      /* գործող փաստաթղթի դաշտերում նոր փաստաթուղթ է գրված (այլ համար, ավելի ուշ տրման ամսաթիվ)՝ նախկինը պահվում է «Նախկին փաստաթղթեր»-ում */
+      const pe = NHR.empPerson(e), moved = NHR.idDocIsNew(pe.idDoc, wp.idDoc) && NHR.idDocArchive(wp, pe.idDoc);
+      Object.assign(pe, JSON.parse(JSON.stringify(wp)));
       Object.assign(e, JSON.parse(JSON.stringify(we)));
-      NHR.save(); dirty = false; wts.dirty = false; NHR.toast('Պահպանված է'); NHR.rerender();
+      NHR.save(); dirty = false; wts.dirty = false; NHR.toast(moved ? 'Պահպանված է․ նախկին փաստաթուղթը տեղափոխվեց «Նախկին փաստաթղթեր»' : 'Պահպանված է'); NHR.rerender();
     };
     let body;
     if (tab === 'general') body = tabGeneral(e, o, date, ro);
@@ -9174,6 +9359,29 @@ window.NHR_EMBASSIES = [
     if (ts.key !== key) { ts.rg = editing ? fromEmp(editing) : (kind === 'prov' ? freshProv(o) : applyKind(Object.assign(freshEmp(o), { intern: r.intern || '' }), o)); ts.key = key; }
     const x = ts.rg, redraw = () => NHR.rerender(), errs = [], warns = [];
     const contract = editing ? NHR.contractDoc(editing) : null;
+    /* Ուշ գրանցում. փաստաթուղթը տրվել է ընդունվելուց (պայմանագրից) հետո, իսկ պայմանագրում և հրամանում նշվում է այդ օրը գործողը՝ նախկինը։
+       Նախկինը պահվում է «Նախկին փաստաթղթեր»-ում, իսկ գործողը (ՀԾ-ի համար)՝ քարտում */
+    /* համեմատվում է պայմանագրի ամսաթվի հետ (պայմանագիր դեռ չկա՝ աշխատանքի սկզբի, ՀԾ-ից ներմուծվածինը կազմվում է այսօրվա ամսաթվով) */
+    const idRef = contract ? (x.contractDate || '') : editing && editing.source === 'import' ? '' : ((kind === 'emp' ? x.dateOn : x.start) || '');
+    const idLate = !!(String(x.idNumber || '').trim() && x.idDate && idRef && x.idDate > idRef);
+    const pers0 = editing ? NHR.empPerson(editing) : x.personId ? NHR.person(x.personId) : null;
+    if (idLate && !x.prevTouched && pers0) {
+      const hd = NHR.idDocAt(pers0, idRef);
+      if (hd !== pers0.idDoc && NHR.idNo(hd)) Object.assign(x, { prevType: hd.type || x.idType, prevNumber: hd.passport || hd.other, prevDate: hd.givenDate || '', prevBy: hd.givenBy || '', prevOrig: NHR.idNo(hd), prevTouched: true });
+    }
+    if (idLate && !x.prevType) x.prevType = x.idType || '5';
+    const touch = () => { x.prevTouched = true; };
+    const hasPrev = idLate && !!String(x.prevNumber || '').trim();
+    const prevBlock = () => idLate ? [h('div', { class: 'wall prevdoc' },
+      h('div', { class: 'note ' + (hasPrev ? 'info' : 'warn') }, NHR.icon('warn'), h('div', null,
+        `Փաստաթուղթը տրվել է ${NHR.fmtDate(x.idDate)}-ին, իսկ ${contract ? 'պայմանագրի ամսաթիվը' : kind === 'emp' ? 'աշխատանքի սկիզբը' : 'ծառայությունների մատուցման սկիզբը'}՝ ${NHR.fmtDate(idRef)}։ `,
+        hasPrev ? 'Պայմանագրում և հրամանում կնշվի ներքևի նախկին փաստաթուղթը, իսկ գործողը կմնա քարտում՝ նոր փաստաթղթերի և ՀԾ-ի համար։'
+          : 'Պայմանագրում և հրամանում նշվում է այն փաստաթուղթը, որը գործում էր այդ օրը․ լրացրեք նախկին փաստաթղթի տվյալները։ Գործողը կմնա քարտում՝ նոր փաստաթղթերի և ՀԾ-ի համար։')),
+      h('div', { class: 'form' },
+        field('Նախկին փաստաթղթի տեսակ', sel(x, 'prevType', NHR.refOpts('idDocType', false), { empty: false, onChange: touch })),
+        field('Նախկին փաստաթղթի համար', inp(x, 'prevNumber', { code: true, onInput: touch, onChange: redraw }), { req: true }),
+        field('Տրման ամսաթիվ', inp(x, 'prevDate', { type: 'date', onChange: () => { touch(); redraw(); } }), { req: true }),
+        field('Ում կողմից', inp(x, 'prevBy', { code: true, onInput: touch }))))] : [];
     let body;
 
     if (kind === 'emp') {
@@ -9220,13 +9428,14 @@ window.NHR_EMBASSIES = [
       body = [
         panel('Աշխատակից', h('div', { class: 'form' },
           editing ? null : field('Ընդունվողը', sel(x, 'mode', [['new', 'Նոր աշխատակից'], ['existing', 'Նախկին աշխատակից (վերաընդունում)']], { empty: false, onChange: () => { x.personId = ''; redraw(); } }), { cls: 'w2' }),
-          !editing && x.mode === 'existing' ? field('Աշխատակից', sel(x, 'personId', former.map(p => [p.id, `${NHR.fullName(p)} · ՀԾՀ ${p.ssn}`]), { empty: 'Ընտրել', onChange: () => { const p = NHR.person(x.personId); if (p) Object.assign(x, fromEmp(st.employments.filter(e => e.personId === p.id).slice(-1)[0]), { mode: 'existing', personId: p.id, tabel: NHR.nextTabel(o.id), dateOn: today(), contractDate: '' }); redraw(); } }), { cls: 'w2' }) : null,
+          !editing && x.mode === 'existing' ? field('Աշխատակից', sel(x, 'personId', former.map(p => [p.id, `${NHR.fullName(p)} · ՀԾՀ ${p.ssn}`]), { empty: 'Ընտրել', onChange: () => { const p = NHR.person(x.personId); if (p) Object.assign(x, fromEmp(st.employments.filter(e => e.personId === p.id).slice(-1)[0]), { mode: 'existing', personId: p.id, tabel: NHR.nextTabel(o.id), dateOn: today(), contractDate: '', prevType: '', prevNumber: '', prevDate: '', prevBy: '', prevOrig: '', prevTouched: false }); redraw(); } }), { cls: 'w2' }) : null,
           field('Լուսանկար', NHR.photoInput(x, 'photo', { onChange: redraw }), { cls: 'wall', hint: 'Կօգտագործվի անվանաքարտում' }),
           field('Ազգանուն', inp(x, 'last'), { req: true }), field('Անուն', inp(x, 'first'), { req: true }), field('Հայրանուն', inp(x, 'patronymic')),
           field('ՀԾՀ', inp(x, 'ssn', { code: true, inputmode: 'numeric' })), field('Ծննդյան ամսաթիվ', inp(x, 'birthday', { type: 'date' })),
           field('Սեռ', sel(x, 'gender', NHR.refOpts('gender', false))),
           field('Փաստաթղթի տեսակ', sel(x, 'idType', NHR.refOpts('idDocType', false), { empty: false }), { cls: 'w2' }),
-          field('Փաստաթղթի համար', inp(x, 'idNumber', { code: true })), field('Տրման ամսաթիվ', inp(x, 'idDate', { type: 'date' })), field('Ում կողմից', inp(x, 'idBy', { code: true })),
+          field('Փաստաթղթի համար', inp(x, 'idNumber', { code: true, onChange: redraw })), field('Տրման ամսաթիվ', inp(x, 'idDate', { type: 'date', onChange: redraw })), field('Ում կողմից', inp(x, 'idBy', { code: true })),
+          ...prevBlock(),
           field('Հաշվառման մարզ', sel(x, 'region', NHR.refOpts('regions', false), { onChange: () => { x.commune = ''; redraw(); } })),
           field('Համայնք', combo(x, 'commune', NHR.ref('communes').rows, { filter: (c) => !x.region || c.region === x.region })),
           field('Փողոց', inp(x, 'street')), field('Տուն', inp(x, 'house')), field('Բնակարան', inp(x, 'apt')),
@@ -9305,7 +9514,8 @@ window.NHR_EMBASSIES = [
           field('ՀԾՀ', inp(x, 'ssn', { code: true, inputmode: 'numeric' })), field('Ծննդյան ամսաթիվ', inp(x, 'birthday', { type: 'date' }), { hint: 'Պահումների (սոցիալական վճար) համար' }),
           field('Սեռ', sel(x, 'gender', NHR.refOpts('gender', false))),
           field('Փաստաթղթի տեսակ', sel(x, 'idType', NHR.refOpts('idDocType', false), { empty: false }), { cls: 'w2' }),
-          field('Փաստաթղթի համար', inp(x, 'idNumber', { code: true })), field('Տրման ամսաթիվ', inp(x, 'idDate', { type: 'date' })), field('Ում կողմից', inp(x, 'idBy', { code: true })),
+          field('Փաստաթղթի համար', inp(x, 'idNumber', { code: true, onChange: redraw })), field('Տրման ամսաթիվ', inp(x, 'idDate', { type: 'date', onChange: redraw })), field('Ում կողմից', inp(x, 'idBy', { code: true })),
+          ...prevBlock(),
           field('Հաշվառման մարզ', sel(x, 'region', NHR.refOpts('regions', false), { onChange: () => { x.commune = ''; redraw(); } })),
           field('Համայնք', combo(x, 'commune', NHR.ref('communes').rows, { filter: (c) => !x.region || c.region === x.region })),
           field('Փողոց', inp(x, 'street')), field('Տուն', inp(x, 'house')), field('Բնակարան', inp(x, 'apt')),
@@ -9332,6 +9542,21 @@ window.NHR_EMBASSIES = [
       }
     }
 
+    /* նախկին փաստաթղթի ստուգումը (ուշ գրանցում) */
+    if (hasPrev) {
+      if (NHR.idNo({ other: x.prevNumber }) === NHR.idNo({ other: x.idNumber })) errs.push('Նախկին և գործող փաստաթղթերի համարները նույնն են');
+      if (!x.prevDate) errs.push('Լրացրեք նախկին փաստաթղթի տրման ամսաթիվը');
+      else if (x.prevDate >= x.idDate) errs.push('Նախկին փաստաթուղթը պետք է տրված լինի գործողից շուտ');
+      else if (x.prevDate > idRef) warns.push(`Նախկին փաստաթուղթը նույնպես տրվել է ${NHR.fmtDate(idRef)}-ից հետո․ ստուգեք ամսաթվերը`);
+    }
+    const setIdDocs = (p) => {
+      const passport = ID_PASSPORT.includes(x.idType);
+      NHR.idDocSet(p, { type: x.idType, passport: passport ? x.idNumber : '', other: passport ? '' : x.idNumber, givenDate: x.idDate, givenBy: x.idBy });
+      if (hasPrev) {
+        const pp = ID_PASSPORT.includes(x.prevType), no = String(x.prevNumber).trim();
+        NHR.idDocPutHist(p, { type: x.prevType, passport: pp ? no : '', other: pp ? '' : no, givenDate: x.prevDate, givenBy: String(x.prevBy || '').trim() }, x.prevOrig);
+      }
+    };
     const save = () => {
       if (errs.length) return;
       if (kind === 'prov' && x.items) { const se = NHR.svcErrors(x.items); const c0 = editing ? NHR.contractDoc(editing) : null; if (se.length && !(c0 && NHR.civilLocked(c0))) { NHR.toast(se[0]); NHR.rerender(); return; } }
@@ -9341,9 +9566,8 @@ window.NHR_EMBASSIES = [
       Object.assign(p, { last: x.last.trim(), first: x.first.trim(), patronymic: (x.patronymic || '').trim(), ssn: x.ssn || '', mobile: NHR.normPhones(x.mobile).value, email: NHR.normEmails(x.email).value, depositAcc: NHR.normAccount(x.account) });
       let e = editing;
       if (kind === 'emp') {
-        const passport = ID_PASSPORT.includes(x.idType);
         Object.assign(p, { birthday: x.birthday, gender: x.gender, profession: x.profession, photo: x.photo || '' });
-        p.idDoc = Object.assign({}, p.idDoc, { type: x.idType, passport: passport ? x.idNumber : '', other: passport ? '' : x.idNumber, givenDate: x.idDate, givenBy: x.idBy });
+        setIdDocs(p);
         p.reg = Object.assign({}, p.reg, { inRA: true, region: x.region, commune: x.commune, street: x.street, house: x.house, apt: x.apt });
         if (x.salaryMode === 'net') x.amount = NHR.grossFromNet(x.net, x.wh || NHR.defaultWithholding(p), NHR.payrollRates(x.dateOn)).gross;
         const terms = { from: x.dateOn, source: 'reg', dept: x.dept, position: x.position, posStart: x.dateOn, desc: x.desc, feeCode: x.feeCode, amount: Number(x.amount) || 0,
@@ -9367,9 +9591,9 @@ window.NHR_EMBASSIES = [
           st.employments.push(e);
         }
       } else {
-        const passport = ID_PASSPORT.includes(x.idType), c0 = editing ? NHR.contractDoc(editing) : null;
+        const c0 = editing ? NHR.contractDoc(editing) : null;
         Object.assign(p, { birthday: x.birthday, gender: x.gender, isProvider: true, providerKind: 'person', providerTin: '' });
-        p.idDoc = Object.assign({}, p.idDoc, { type: x.idType, passport: passport ? x.idNumber : '', other: passport ? '' : x.idNumber, givenDate: x.idDate, givenBy: x.idBy });
+        setIdDocs(p);
         p.reg = Object.assign({}, p.reg, { inRA: true, region: x.region, commune: x.commune, street: x.street, house: x.house, apt: x.apt });
         const service = c0 && c0.code === '2.2' && NHR.civilLocked(c0) ? e.service : { start: x.start, end: x.end, items: NHR.svcClean(x.items) };
         if (e) { e.service = service; e.tabel = x.tabel; if (!NHR.contractDoc(e)) e.dateOn = x.start; }
@@ -9656,6 +9880,8 @@ window.NHR_EMBASSIES = [
         ['Աշխատավարձ', NHR.salaryText(o.id, t) + (t.salaryMode === 'net' ? ` (մաքուր՝ ${NHR.fmtNum(t.net)} դր.)` : '')], ['Պայմանագրի ժամկետ', t.term === '2' ? `մինչև ${NHR.fmtDate(t.termEnd)}` : NHR.refName('contractTerm', t.term)],
         ['Փորձաշրջան', NHR.refName('probation', t.probation)], ['Օրական աշխատաժամանակ', `${NHR.fmtNum(NHR.dailyHours(t), 1).replace('.0', '')} ժամ`], ['Աշխատաժամանակ', NHR.hoursText(o, t)], ['Ռեժիմ', NHR.refName('regime', t.regime)]]);
     const block = civil ? NHR.svcBlock(cp.sv) : NHR.contractBlock(e, def.code), ok = !block;
+    /* պայմանագրի ամսաթվին անձնագիրը դեռ տրված չէր (ուշ գրանցում)՝ նախկին փաստաթուղթը լրացված չէ */
+    const idLate = cp.date ? NHR.idDocLate(NHR.empPerson(e), cp.date) : null;
     /* Ծառայություն մատուցողի նախորդ պայմանագրերը (նոր պայմանագիրը կստանա հաջորդ համարը) */
     const prevC = civil ? NHR.civilContractsOf(e).filter(x => x.status === 'approved') : [];
     return h('div', { style: { display: 'contents' } }, head,
@@ -9672,6 +9898,8 @@ window.NHR_EMBASSIES = [
           panel('Կկազմվի', h('div', { style: { display: 'grid', gap: '8px' } }, h('ul', { class: 'list-plain' }, NHR.docPack(def, o).map(x => h('li', null, x))),
             h('div', { class: 'muted small' }, tpl ? `Ձևանմուշ՝ ${tpl.v}` : 'Ձևանմուշը դեռ բեռնված չէ'))),
           !ok ? h('div', { class: 'note warn' }, h('div', null, block)) : null,
+          idLate ? h('div', { class: 'note warn' }, NHR.icon('warn'), h('div', { style: { display: 'grid', gap: '8px' } }, h('div', null, NHR.idDocLateText(idLate, cp.date)),
+            h('div', null, btn('Ավելացնել նախկին փաստաթուղթը', () => NHR.open({ page: 'employee', id: e.id, tab: 'other' }), 'sm', 'edit')))) : null,
           h('button', { class: 'btn primary', disabled: !ok || !cp.date ? true : null, onclick: generate }, NHR.icon('contract'), 'Գեներացնել պայմանագիրը'))));
   };
 })();
@@ -10096,23 +10324,15 @@ window.NHR_EMBASSIES = [
       const ok = res.filter(r => !r.errs.length), bad = res.filter(r => r.errs.length);
       NHR.modal({ title: `Հաստատել նշված սևագրերը (${res.length})`, wide: true, body: h('div', { style: { display: 'grid', gap: '10px' } },
         ok.length ? h('div', null, h('b', null, `Կհաստատվի՝ ${ok.length}`), h('div', { class: 'small muted' }, ok.map(r => docName(r.d)).join(', ')),
-          h('div', { class: 'small muted', style: { marginTop: '4px' } }, 'Համարները կտրվեն ըստ ամսաթվերի հերթականության։ Հաստատելուց հետո փաստաթղթերը չեն փոխվում։')) : null,
+          h('div', { class: 'small muted', style: { marginTop: '4px' } }, 'Համարները կտրվեն ըստ ամսաթվերի հերթականության (խմբագրվողներինը՝ կմնան նույնը)։')) : null,
         bad.length ? h('div', { class: 'note warn' }, h('div', null, h('b', null, `Չի հաստատվի՝ ${bad.length} (սխալներ կան, բացեք և ուղղեք)`), bad.map(r => h('div', { class: 'small' }, `${docName(r.d)}՝ ${r.errs[0]}`)))) : null),
         actions: [{ label: ok.length ? 'Չեղարկել' : 'Փակել' }, ok.length ? { label: `Հաստատել (${ok.length})`, cls: 'stamp', onClick: () => {
           ok.forEach(r => { const i = S.documents.indexOf(r.d); if (i < 0) return; S.documents[i] = r.x; NHR.approve(r.x); });
           picked.clear(); NHR.save(); NHR.rerender(); NHR.toast(`Հաստատվեց ${ok.length} փաստաթուղթ`);
         } } : null].filter(Boolean) });
     };
-    const deleteMany = () => {
-      const skip = sel.length - selDrafts.length;
-      NHR.confirm(`Ջնջել նշված սևագրերը (${selDrafts.length})`, h('div', { style: { display: 'grid', gap: '8px' } },
-        h('div', null, `Կջնջվի ${selDrafts.length} սևագիր։ Համար դեռ չի կտրվել։`),
-        skip ? h('div', { class: 'muted' }, `Հաստատված և չեղարկված ${skip} փաստաթուղթը չի ջնջվի (հաստատվածը կարելի է միայն չեղարկել)։`) : null), 'Ջնջել', () => {
-        const del = new Set(selDrafts.map(d => d.id));
-        S.documents = S.documents.filter(d => !del.has(d.id));
-        picked.clear(); NHR.save(); NHR.rerender(); NHR.toast(`Ջնջվեց ${del.size} սևագիր`);
-      }, 'danger');
-    };
+    /* Ջնջել նշվածները՝ ցանկացած վիճակի (NHR.docDeleteAsk) */
+    const deleteMany = () => NHR.docDeleteAsk(sel, () => { picked.clear(); NHR.rerender(); });
     const pdfMany = () => {
       if (!NHR.serverMode) { NHR.toast('Աշխատում է Google-ում տեղադրված (սերվերով) տարբերակում'); return; }
       if (!NHR.driveUrlOf(o)) { NHR.toast('Կազմակերպության քարտում («HR կարգավորումներ») նշեք Google Drive-ի HR թղթապանակը'); return; }
@@ -10121,7 +10341,7 @@ window.NHR_EMBASSIES = [
     const bulk = canEdit ? h('div', { class: 'bulkbar' },
       h('button', { class: 'btn stamp sm', disabled: selDrafts.length ? null : true, title: selDrafts.length ? null : 'Նշեք սևագրերը ցուցակում', onclick: approveMany }, NHR.icon('stamp'), `Հաստատել նշվածները${selDrafts.length ? ` (${selDrafts.length})` : ''}`),
       h('button', { class: 'btn sm', disabled: selPdf.length ? null : true, title: selPdf.length ? null : 'Նշեք հաստատված փաստաթղթերը', onclick: pdfMany }, NHR.icon('upload'), `PDF-ները Drive-ում${selPdf.length ? ` (${selPdf.length})` : ''}`),
-      h('button', { class: 'btn sm danger', disabled: selDrafts.length ? null : true, title: selDrafts.length ? null : 'Ջնջվում են միայն սևագրերը', onclick: deleteMany }, NHR.icon('trash'), `Ջնջել սևագրերը${selDrafts.length ? ` (${selDrafts.length})` : ''}`),
+      h('button', { class: 'btn sm danger', disabled: sel.length ? null : true, title: sel.length ? null : 'Նշեք փաստաթղթերը ցուցակում', onclick: deleteMany }, NHR.icon('trash'), `Ջնջել նշվածները${sel.length ? ` (${sel.length})` : ''}`),
       sel.length ? h('span', { class: 'cnt-sel' }, 'Ընտրված է ', h('b', null, sel.length)) : null,
       sel.length ? h('button', { class: 'btn ghost sm', onclick: () => { picked.clear(); NHR.rerenderKeep(); } }, 'Մաքրել ընտրությունը') : null) : null;
     const q = h('input', { type: 'search', id: 'doc-search', placeholder: 'Որոնել աշխատակցով կամ համարով', value: jf.q, style: { maxWidth: '280px' },
@@ -10136,7 +10356,7 @@ window.NHR_EMBASSIES = [
       panel(null, [bulk, table([
         canEdit ? { th: headCb, cls: 'cb', get: cb } : null,
         { th: 'Ամսաթիվ', cls: 'code', get: d => NHR.fmtDate(d.date) },
-        { th: 'Համար', get: d => d.status === 'draft' ? h('span', { class: 'muted' }, 'կտրվի հաստատելիս') : h('span', { class: 'code' }, NHR.docNumberText(d)) },
+        { th: 'Համար', get: d => d.status === 'draft' && !d.reopened ? h('span', { class: 'muted' }, 'կտրվի հաստատելիս') : h('span', { class: 'code' }, NHR.docNumberText(d)) },
         { th: 'Փաստաթուղթ', get: d => h('div', null, h('span', { class: 'tag' }, d.code), ' ', NHR.docDef(d.code).name, d.backdated ? h('span', { class: 'sub' }, 'Հետին ամսաթվով') : null,
           d.code === '2.3' && d.fields.periodFrom ? h('span', { class: 'sub' }, `Փաստացի կատարում՝ ${NHR.periodShort(d.fields.periodFrom, d.fields.periodTo)} · ${NHR.fmtMoney(NHR.actCalc(d).total)} դր.`) : null,
           (d.code === '6.1' || d.code === '6.2') && d.fields.effective ? h('span', { class: 'sub' }, `Գործում է ${NHR.fmtDate(d.fields.effective)}-ից`) : null,
@@ -10144,7 +10364,11 @@ window.NHR_EMBASSIES = [
         { th: 'Աշխատակից', get: d => NHR.docEmpName(d) },
         { th: 'Վիճակ', get: d => h('div', { style: { display: 'flex', gap: '4px', flexWrap: 'wrap' } }, NHR.docStatusChip(d), d.code === '2.2' && d.status === 'approved' && NHR.civilState(d).key === 'done' ? NHR.chip('Ավարտված', 'ok') : null, NHR.driveChip(d)) },
         { th: 'Ձևանմուշ', cls: 'code', get: d => d.tplVersion || '—' },
-        { th: 'Կազմել է', get: d => { const u = S.users.find(x => x.id === d.createdBy); return u ? u.name : ''; } }
+        { th: 'Կազմել է', get: d => { const u = S.users.find(x => x.id === d.createdBy); return u ? u.name : ''; } },
+        /* ամեն տողում՝ խմբագրել և ջնջել (ցանկացած վիճակի փաստաթուղթ) */
+        canEdit ? { th: '', cls: 'acts', get: d => { const why = NHR.docEditWhy(d); return h('span', { class: 'row-acts' },
+          h('button', { class: 'icon-btn', type: 'button', title: why || 'Խմբագրել', 'aria-label': 'Խմբագրել', disabled: why ? true : null, onclick: (ev) => { ev.stopPropagation(); NHR.docEdit(d); } }, NHR.icon('edit')),
+          h('button', { class: 'icon-btn danger', type: 'button', title: 'Ջնջել', 'aria-label': 'Ջնջել', onclick: (ev) => { ev.stopPropagation(); NHR.docDeleteAsk([d]); } }, NHR.icon('trash'))); } } : null
       ].filter(Boolean), docs, { onRow: d => NHR.open({ page: 'doc', id: d.id }), rowCls: d => d.status === 'cancelled' ? 'dim' : '', empty: jf.group || jf.status || jf.year || jf.q ? 'Այս ֆիլտրով փաստաթուղթ չկա' : `${NHR.orgName(o)}-ում փաստաթղթեր դեռ չկան` })], { flush: true })
     );
   };
@@ -10162,13 +10386,15 @@ window.NHR_EMBASSIES = [
     /* Տնօրենին ազատելիս հրաման չի կազմվում՝ հիմնադրի որոշման (արձանագրության) համարը գրվում է ձեռքով */
     const dirOff = def.kind === 'dismiss' && NHR.dismissIsDirector(d);
     if (dirOff) out.push([NHR.dismissCalc(d).dirKey === 'meeting' ? 'Արձանագրության համար' : 'Որոշման համար', d.fields.decisionNum || '—', 'Գրվում է ձեռքով']);
+    /* խմբագրման համար վերաբացված փաստաթուղթը պահում է իր համարները */
+    const KEPT = 'Նույնն է (փաստաթուղթը խմբագրվում է)';
     if ((def.numbers.includes('order') && !dirOff) || (def.kind === 'change' && (d.fields.changes || []).some(k => k === 'position' || k === 'dept'))) {
-      const n = NHR.nextOrder(d.orgId, d.date);
-      out.push(['Հրամանի համար', n.number, n.backdated ? `Հետին ամսաթվով․ ${n.after.doc.numbers.order} հրամանն ունի ավելի ուշ ամսաթիվ (${NHR.fmtDate(n.after.date)})` : '']);
+      const kept = NHR.keptNum(d, 'order'), n = kept ? null : NHR.nextOrder(d.orgId, d.date);
+      out.push(['Հրամանի համար', kept || n.number, kept ? KEPT : n.backdated ? `Հետին ամսաթվով․ ${n.after.doc.numbers.order} հրամանն ունի ավելի ուշ ամսաթիվ (${NHR.fmtDate(n.after.date)})` : '']);
     }
-    if (def.numbers.includes('agreement')) out.push(['Համաձայնագրի համար', NHR.nextAgreement(d.orgId, def.kind === 'dismiss' ? (d.fields.agreementDate || d.date) : d.date), '']);
-    if (def.numbers.includes('civil') && d.empId) out.push(['Պայմանագրի համար', NHR.nextCivil(d.empId), 'Տաբելային համար + հերթական ենթահամար']);
-    if (def.numbers.includes('act') && d.fields.contractDocId) out.push(['Ակտի համար', 'Ակտ N ' + NHR.nextAct(d.fields.contractDocId), 'Ակտի հերթական համար + պայմանագրի համար']);
+    if (def.numbers.includes('agreement')) { const kept = NHR.keptNum(d, 'agreement'); out.push(['Համաձայնագրի համար', kept || NHR.nextAgreement(d.orgId, def.kind === 'dismiss' ? (d.fields.agreementDate || d.date) : d.date), kept ? KEPT : '']); }
+    if (def.numbers.includes('civil') && d.empId) { const kept = NHR.keptNum(d, 'civil'); out.push(['Պայմանագրի համար', kept || NHR.nextCivil(d.empId), kept ? KEPT : 'Տաբելային համար + հերթական ենթահամար']); }
+    if (def.numbers.includes('act') && d.fields.contractDocId) { const kept = NHR.keptNum(d, 'act'); out.push(['Ակտի համար', 'Ակտ N ' + (kept || NHR.nextAct(d.fields.contractDocId)), kept ? KEPT : 'Ակտի հերթական համար + պայմանագրի համար']); }
     const L = NHR.outLetter(d);
     if (L && (L.date || (d.numbers && d.numbers.out))) out.push([L.label, (d.numbers && d.numbers.out) || NHR.nextOutgoing(d.orgId, L.date, d.id), d.numbers && d.numbers.out ? 'Տրված է' : L.atApprove ? 'Տրվում է հաստատելիս' : 'Տրվում է սևագիրը պահպանելիս']);
     return out;
@@ -10468,6 +10694,7 @@ window.NHR_EMBASSIES = [
       else if (def.kind === 'cert') NHR.certForm(d, ctx);
       else errs.push('Այս փաստաթուղթը հաստատվում է իր էջից');
     } catch (e) { errs.push('Ստուգել չհաջողվեց․ ' + e.message); }
+    const idw = NHR.idDocWarn(d); if (idw) warns.push(idw);
     return { errs, warns };
   };
 
@@ -10508,6 +10735,8 @@ window.NHR_EMBASSIES = [
     else if (def.kind === 'civilChange') { const res = NHR.civilChangeForm(d, { o, errs, warns, redraw }); form = res.form; side = res.side; }
     else if (def.kind === 'dismiss') { const res = NHR.dismissForm(d, { o, errs, warns, redraw, empPick, group: !!grp }); form = res.form; side = res.side; }
     else if (def.kind === 'cert') { const res = NHR.certForm(d, { o, errs, warns, redraw, empPick }); form = res.form; side = res.side; }
+    /* անձնագիրը փաստաթղթի ամսաթվին դեռ տրված չէր (ուշ գրանցում, փոխված անձնագիր) */
+    { const idw = grp ? '' : NHR.idDocWarn(d); if (idw) warns.push(idw); }
 
     /* Խմբային. ամեն աշխատակցի սևագիրը և ստուգումը. ընդհանուր սխալները (բոլորի մոտ նույնը)՝ առանձին */
     let gr = null, common = [], ready = [], picked = [];
@@ -10532,7 +10761,7 @@ window.NHR_EMBASSIES = [
     const approve = () => {
       if (errs.length) return;
       NHR.confirm('Հաստատել փաստաթուղթը', h('div', { style: { display: 'grid', gap: '8px' } },
-        h('div', null, 'Հաստատելուց հետո փաստաթուղթը չի փոխվում։ Կտրվեն համարները՝'),
+        h('div', null, d.reopened ? 'Փոփոխությունները կհաստատվեն, համարները կմնան նույնը՝' : 'Կտրվեն համարները՝'),
         h('ul', { class: 'list-plain' }, nums.map(([k, v]) => h('li', null, `${k}՝ `, h('b', { class: 'code' }, v)))),
         def.kind === 'hire' ? h('div', { class: 'muted' }, 'Աշխատակցի քարտը կթարմանա։') : null,
         def.kind === 'dismiss' ? h('div', { class: 'muted' }, `Աշխատակիցը կհամարվի ազատված ${NHR.fmtDate(f.dateOff)}-ից հետո, իսկ ստաժը, չօգտագործված արձակուրդը և արձակման նպաստը կպահվեն փաստաթղթում։`) : null,
@@ -10563,7 +10792,7 @@ window.NHR_EMBASSIES = [
       if (!ready.length) return;
       const skip = gr.length - ready.length;
       NHR.confirm('Հաստատել փաստաթղթերը', h('div', { style: { display: 'grid', gap: '8px' } },
-        h('div', null, `Կհաստատվի ${ready.length} փաստաթուղթ՝ ամեն աշխատակցի համար առանձին, հերթական համարներով։ Հաստատելուց հետո փաստաթղթերը չեն փոխվում։`),
+        h('div', null, `Կհաստատվի ${ready.length} փաստաթուղթ՝ ամեն աշխատակցի համար առանձին, հերթական համարներով։`),
         skip ? h('div', { class: 'muted' }, `${skip} աշխատակցի համար փաստաթուղթ չի կազմվի (նշված չեն կամ ունեն սխալներ)։`) : null), 'Հաստատել', () => {
         const now = new Date().toISOString();
         const docs = ready.slice().sort(byTabel).map(g => { const x = g.x; x.id = NHR.uid('D'); x.createdAt = now; S.documents.push(x); return x; });
@@ -10662,6 +10891,114 @@ window.NHR_EMBASSIES = [
     /* 1.2, 1.3՝ ղեկավարը (գլխավոր հաշվապահը) վերադառնում է նախկին վիճակին */
     if (def.kind === 'hire' && (def.role === 'director' || def.role === 'chief')) NHR.roleRevert(d);
   }
+  NHR.docRevert = revert;
+
+  /* ---------- Խմբագրում և ջնջում (ցանկացած փաստաթուղթ) ---------- */
+  const REOPEN = ['leave', 'trip', 'change', 'civilChange', 'dismiss', 'cert', 'act'];
+  /* Հաստատված կամ չեղարկված փաստաթուղթը վերադառնում է սևագրի՝ նույն համարներով (նորից հաստատելիս՝ նույնը, NHR.approve)։
+     Հաստատվածի քարտի փոփոխությունները հետարկվում են մինչև նորից հաստատելը, պահված հաշվարկները վերահաշվվում են ձևում */
+  NHR.docReopen = (d) => {
+    const def = NHR.docDef(d.code), f = d.fields || (d.fields = {});
+    if (d.status === 'approved') revert(d);
+    if (def.kind === 'act') f.frozen = false;
+    if (def.kind === 'change') { delete f.before; delete f.after; delete f.dirKey; delete f.replaced; }
+    if (def.kind === 'civilChange') { delete f.prevItems; delete f.prevEnd; }
+    d.reopened = { at: new Date().toISOString(), by: NHR.state().currentUserId, from: d.status };
+    d.status = 'draft';
+    NHR.save();
+    return d;
+  };
+  /* Ինչու չի խմբագրվում (դատարկ՝ խմբագրվում է) */
+  NHR.docEditWhy = (d) => {
+    const def = NHR.docDef(d.code) || {};
+    if (d.status === 'draft' || def.kind === 'badge') return '';
+    if (def.kind === 'hire' || def.kind === 'civil') {
+      const e = d.empId ? NHR.emp(d.empId) : null;
+      if (d.status === 'cancelled') return 'Չեղարկված պայմանագիրը չի վերականգնվում․ կազմեք նոր պայմանագիր';
+      return e && e.contractDocId === d.id ? '' : 'Սա աշխատակցի գործող պայմանագիրը չէ';
+    }
+    if (!REOPEN.includes(def.kind)) return 'Այս փաստաթուղթը խմբագրվում է իր էջից';
+    return d.status === 'approved' ? NHR.cancelBlock(d) : '';
+  };
+  NHR.docEdit = (d) => {
+    const def = NHR.docDef(d.code) || {}, why = NHR.docEditWhy(d);
+    if (why) { NHR.toast(why); return; }
+    if (d.status === 'draft') { NHR.go({ page: 'newdoc', code: d.code, docId: d.id }); return; }
+    if (def.kind === 'badge') { NHR.open({ page: 'badge', ids: d.empId ? [d.empId] : [] }); return; }
+    if (def.kind === 'hire' || def.kind === 'civil') {
+      const go = () => NHR.open({ page: 'register', id: d.empId });
+      if (NHR.contractHasAgr(d)) NHR.confirm('Խմբագրել պայմանագիրը', 'Պայմանագրով արդեն կան համաձայնագրեր։ Պայմանագիրը կփոխարինվի նորով՝ նույն համարով, իսկ համաձայնագրերը չեն փոխվի։', 'Խմբագրել', go);
+      else go();
+      return;
+    }
+    const num = NHR.docNumberText(d);
+    NHR.confirm('Խմբագրել փաստաթուղթը', h('div', { style: { display: 'grid', gap: '8px' } },
+      h('div', null, `Փաստաթուղթը կբացվի խմբագրելու համար${num ? ` (${num})` : ''}։ Նորից հաստատելիս համարը կմնա նույնը։`),
+      d.status === 'approved' ? h('div', { class: 'muted' }, 'Մինչև նորից հաստատելը այն կլինի սևագիր, իսկ քարտի փոփոխությունները (օր.՝ ազատում, նոր աշխատավարձ) կհետարկվեն։') : null,
+      d.status === 'cancelled' ? h('div', { class: 'muted' }, 'Չեղարկված փաստաթուղթը նորից հաստատելուց հետո կդառնա գործող։') : null),
+      'Խմբագրել', () => { NHR.docReopen(d); NHR.go({ page: 'newdoc', code: d.code, docId: d.id }); });
+  };
+  /* Ջնջել՝ ցանկացած փաստաթուղթ։ Հաստատվածի քարտի փոփոխությունները հետարկվում են (ինչպես չեղարկելիս), սերվերով տարբերակում
+     Tasks-ի վճարման թասքը փակվում է, Google Drive-ի PDF-ը տեղափոխվում է աղբարկղ (Code.gs՝ docDrop)։ Չհաջողվեց՝ փաստաթուղթը մնում է չեղարկված */
+  NHR.docDrop = async (d) => {
+    const S = NHR.state(), why = d.status === 'approved' ? NHR.cancelBlock(d) : '';
+    if (why) throw new Error(why);
+    if (d.status === 'approved') revert(d);
+    const srv = NHR.serverMode && ((NHR.payTask && NHR.payTask(d.id)) || (NHR.driveFile && NHR.driveFile(d.id)));
+    if (srv) {
+      if (d.status === 'approved') d.status = 'cancelled';
+      NHR.save();
+      await NHR.docDropServer(d);
+    }
+    const i = S.documents.indexOf(d);
+    if (i >= 0) S.documents.splice(i, 1);
+    NHR.save();
+  };
+  /* Ջնջվող փաստաթղթի համարը վերջինն է (կտրվի հաջորդին), թե ոչ (բաց կմնա) */
+  const numNote = (d) => {
+    const n = (d.numbers || {}).order || (d.numbers || {}).agreement;
+    if (!n || d.status === 'draft' && !d.reopened) return '';
+    const S = NHR.state(), key = (d.numbers || {}).order ? 'order' : 'agreement';
+    const num = (x) => { const m = key === 'order' ? NHR.parseOrder(x) : (/^Հ-(\d+)\/(\d{4})$/.exec(x) || null); return m ? (key === 'order' ? m.n * 1000 + m.k : +m[1]) : 0; };
+    const yr = n.slice(-4), mine = num(n);
+    const later = S.documents.some(x => x !== d && x.orgId === d.orgId && x.numbers && x.numbers[key] && String(x.numbers[key]).slice(-4) === yr && num(x.numbers[key]) > mine && (x.status !== 'draft' || x.reopened));
+    return later ? `Համարը (${n}) այլևս չի օգտագործվի․ համարակալման մեջ բաց կմնա։` : `Համարը (${n}) կտրվի հաջորդ փաստաթղթին։`;
+  };
+  /* Հարցում և ջնջում (մեկ կամ մի քանի փաստաթուղթ)։ Կախված փաստաթղթերը (օր.՝ ակտերը պայմանագրից առաջ)՝ նախ */
+  NHR.docDeleteAsk = (list, done) => {
+    const S = NHR.state(), docs = list.filter(Boolean);
+    if (!docs.length) return;
+    const one = docs.length === 1 ? docs[0] : null;
+    const cnt = (st) => docs.filter(d => d.status === st).length;
+    const anyApproved = docs.some(d => d.status === 'approved'), anySrv = NHR.serverMode && docs.some(d => (NHR.payTask && NHR.payTask(d.id)) || NHR.driveFile(d.id));
+    const title = one ? (one.status === 'draft' && !one.reopened ? 'Ջնջել սևագիրը' : 'Ջնջել փաստաթուղթը') : `Ջնջել նշված փաստաթղթերը (${docs.length})`;
+    const body = h('div', { style: { display: 'grid', gap: '8px' } },
+      one ? h('div', null, h('b', null, `${one.code} ${NHR.docDef(one.code).name}`), NHR.docNumberText(one) ? ` · ${NHR.docNumberText(one)}` : '', NHR.docEmpName(one) ? ` · ${NHR.docEmpName(one)}` : '')
+        : h('div', null, [['draft', 'սևագիր'], ['approved', 'հաստատված'], ['cancelled', 'չեղարկված']].filter(([k]) => cnt(k)).map(([k, t]) => `${cnt(k)} ${t}`).join(', ')),
+      anyApproved ? h('div', null, 'Հաստատվածի քարտի փոփոխությունները կհետարկվեն (ինչպես չեղարկելիս)։') : null,
+      anySrv ? h('div', null, 'Google Drive-ի PDF-ը կտեղափոխվի աղբարկղ, Tasks-ի վճարման թասքը կփակվի։') : null,
+      one && numNote(one) ? h('div', null, numNote(one)) : null,
+      !one && docs.some(d => d.status !== 'draft' || d.reopened) ? h('div', { class: 'muted' }, 'Վերջին համարները կտրվեն հաջորդ փաստաթղթերին, մյուսները համարակալման մեջ բաց կմնան։') : null,
+      docs.some(d => d.status !== 'draft' || d.reopened) ? h('div', { class: 'muted' }, 'Համարը և փաստաթուղթը պահելու համար ավելի լավ է «Չեղարկել»։ Ջնջելը հետ չի բերվում։') : null);
+    NHR.confirm(title, body, 'Ջնջել', async () => {
+      let left = docs.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')), ok = 0;
+      const err = new Map();
+      /* կախվածները (ակտ, համաձայնագիր, ժամկետի փոփոխություն)՝ առաջ. արգելվածները փորձվում են նորից, քանի դեռ առաջընթաց կա */
+      for (let pass = 0; pass < 4 && left.length; pass++) {
+        const next = [];
+        for (const d of left) {
+          if (!S.documents.includes(d)) { ok++; err.delete(d); continue; }
+          try { await NHR.docDrop(d); ok++; err.delete(d); } catch (e) { next.push(d); err.set(d, e.message); }
+        }
+        const stuck = next.length === left.length;
+        left = next;
+        if (stuck) break;
+      }
+      const why = left.length ? `${left[0].code} ${NHR.docNumberText(left[0]) || ''}՝ ${err.get(left[0]) || ''}` : '';
+      NHR.toast(left.length ? (docs.length > 1 ? `Ջնջվեց՝ ${ok}, չջնջվեց՝ ${left.length}․ ${why}` : `Չջնջվեց․ ${err.get(left[0]) || ''}`) : ok > 1 ? `Ջնջվեց ${ok} փաստաթուղթ` : 'Փաստաթուղթը ջնջվեց');
+      if (done && !left.length) done(); else NHR.rerender();
+    }, 'danger');
+  };
   const civRows = (d, def) => {
     const f = d.fields, c = def.kind === 'civil' ? null : NHR.civilContract(f.contractDocId);
     const cLink = c ? h('a', { href: '#', onclick: (ev) => { ev.preventDefault(); NHR.open({ page: 'doc', id: c.id }); } }, `N ${c.numbers.civil}, ${NHR.fmtDate(c.date)}`) : '';
@@ -10685,7 +11022,8 @@ window.NHR_EMBASSIES = [
         h('div', { class: 'page-back' }, btn('Փաստաթղթերի մատյան', () => NHR.finish({ page: 'documents' }), 'ghost sm', 'back')),
         pageHead(h('span', null, h('span', { class: 'tag', style: { fontSize: '14px', verticalAlign: 'middle' } }, d.code), ' ', def.name), h('span', { class: 'row' }, NHR.docStatusChip(d)),
           [h('button', { class: 'btn', disabled: true, title: 'Կաշխատի Google-ում տեղադրված տարբերակում' }, NHR.icon('print'), 'Տպել'), h('button', { class: 'btn', disabled: true, title: 'Կաշխատի Google-ում տեղադրված տարբերակում' }, 'PDF'),
-            be ? btn('Նոր անվանաքարտ', () => NHR.open({ page: 'badge', ids: [be.id] }), '', 'badge') : null]),
+            be ? btn('Նոր անվանաքարտ', () => NHR.open({ page: 'badge', ids: [be.id] }), '', 'badge') : null,
+            NHR.can('edit') ? btn('Ջնջել', () => NHR.docDeleteAsk([d], () => NHR.finish({ page: 'documents' })), 'ghost danger', 'trash') : null]),
         h('div', { class: 'split side-r' }, h('div', { class: 'sheetwrap' }, be ? h('div', { class: 'badges' }, NHR.badgeCard(be, { size: d.fields.size, fields: d.fields })) : null),
           panel('Տվյալներ', kv([['Աշխատակից', be ? h('a', { href: '#', onclick: (ev) => { ev.preventDefault(); NHR.open({ page: 'employee', id: be.id }); } }, NHR.fullName(NHR.empPerson(be))) : ''],
             ['Չափը', NHR.badgeSizeText(NHR.badgeSize(d.fields.size))],
@@ -10751,12 +11089,10 @@ window.NHR_EMBASSIES = [
       h('div', { class: 'page-back' }, btn('Փաստաթղթերի մատյան', () => NHR.finish({ page: 'documents' }), 'ghost sm', 'back')),
       pageHead(h('span', null, h('span', { class: 'tag', style: { fontSize: '14px', verticalAlign: 'middle' } }, d.code), ' ', def.name),
         h('span', { class: 'row' }, NHR.docStatusChip(d), h('span', { class: 'code' }, NHR.docNumberText(d) || 'Համարը կտրվի հաստատելիս'), d.backdated ? NHR.chip('Հետին ամսաթվով', 'warn') : null),
-        [d.status === 'draft' && canEdit ? btn('Խմբագրել', () => NHR.go({ page: 'newdoc', code: d.code, docId: d.id }), '', 'edit') : null,
-          d.status === 'draft' && canEdit ? btn('Ջնջել սևագիրը', () => NHR.confirm('Ջնջել սևագիրը', 'Սևագիրը կջնջվի։ Համար դեռ չի կտրվել։', 'Ջնջել', () => { S.documents.splice(S.documents.indexOf(d), 1); NHR.save(); NHR.finish({ page: 'documents' }); }, 'danger'), 'ghost danger') : null,
+        [/* ցանկացած փաստաթուղթ՝ «Խմբագրել» (հաստատվածը՝ վերաբացվում է սևագրի պես, նույն համարով) */
+          canEdit ? (NHR.docEditWhy(d) ? h('button', { class: 'btn', disabled: true, title: NHR.docEditWhy(d) }, NHR.icon('edit'), isContract ? 'Խմբագրել պայմանագիրը' : 'Խմբագրել')
+            : btn(isContract ? 'Խմբագրել պայմանագիրը' : 'Խմբագրել', () => NHR.docEdit(d), '', 'edit')) : null,
           d.status === 'draft' && canEdit ? btn('Բացել հաստատելու համար', () => NHR.go({ page: 'newdoc', code: d.code, docId: d.id }), 'stamp', 'stamp') : null,
-          /* Համաձայնագրերից հետո պայմանագիրն ուղղակի չի խմբագրվում՝ միայն նոր համաձայնագրով */
-          isContract && canEdit ? (hasNow ? h('button', { class: 'btn', disabled: true, title: 'Պայմանագիրն արդեն փոխվել է համաձայնագրով․ նոր փոփոխությունը՝ 6.1 (6.2) համաձայնագրով' }, NHR.icon('edit'), 'Խմբագրել պայմանագիրը')
-            : btn('Խմբագրել պայմանագիրը', () => NHR.open({ page: 'register', id: d.empId }), '', 'edit')) : null,
           isContract && canEdit && def.kind === 'hire' && !ce.dateOff ? btn('Փոխել (6.1)', () => NHR.open({ page: 'newdoc', code: '6.1', empId: d.empId }), '', 'filePlus') : null,
           isContract && canEdit && def.kind === 'civil' ? btn('Փոխել (6.2)', () => NHR.open({ page: 'newdoc', code: '6.2', contractDocId: d.id }), '', 'filePlus') : null,
           isContract && canEdit ? btn('Ուղարկել', () => NHR.sendModal([d]), '', 'send') : null,
@@ -10771,6 +11107,7 @@ window.NHR_EMBASSIES = [
           d.status === 'approved' && canEdit ? btn('Չեղարկել', () => { const why = NHR.cancelBlock(d); if (why) { NHR.toast(why); return; }
             NHR.confirm('Չեղարկել փաստաթուղթը', def.kind === 'act' ? 'Ակտը կնշվի չեղարկված, իսկ նրա ծառայությունների քանակը ռեեստրում այլևս չի հաշվվի կատարված։ Համարը չի վերաօգտագործվի։'
               : 'Փաստաթուղթը կնշվի չեղարկված, իսկ համարը այլևս չի օգտագործվի։ Քարտի փոփոխությունները կհետարկվեն։', 'Չեղարկել', () => { d.status = 'cancelled'; revert(d); NHR.save(); NHR.driveAuto(d, 'cancel'); if (NHR.payAuto) NHR.payAuto(d, 'cancel'); NHR.rerender(); }, 'danger'); }, 'ghost danger') : null,
+          canEdit ? btn(d.status === 'draft' && !d.reopened ? 'Ջնջել սևագիրը' : 'Ջնջել', () => NHR.docDeleteAsk([d], () => NHR.finish({ page: 'documents' })), 'ghost danger', 'trash') : null,
           ...NHR.docFileButtons(d)]),
       h('div', { class: 'split side-r' },
         h('div', { style: { display: 'grid', gap: '12px' } },
@@ -10796,6 +11133,11 @@ window.NHR_EMBASSIES = [
             ['Ձևանմուշի տարբերակ', d.tplVersion || '—'],
             /* Ղեկավարը փոխվել է՝ ցույց ենք տալիս, թե ով է այս փաստաթղթում (ըստ ամսաթվի) */
             o && o.type !== 'ԱՁ' && (o.headHistory || []).length ? ['Ղեկավարը փաստաթղթում', (x => `${NHR.roleName(x)}${x.position ? ', ' + x.position : ''}`)(NHR.roleAt(o, 'head', d.date))] : null,
+            /* անձնագիրը՝ փաստաթղթի ամսաթվին գործողը (նախկին փաստաթղթերից), կամ զգուշացում, եթե այդ օրը այն դեռ տրված չէր */
+            (u => !u || d.status === 'cancelled' ? null : u.late
+              ? ['Անձնագիրը փաստաթղթում', h('div', { style: { display: 'grid', gap: '6px' } }, h('span', { style: { color: 'var(--bad)' } }, NHR.idDocWarn(d)),
+                canEdit ? h('div', { class: 'row' }, btn('Ավելացնել նախկին փաստաթուղթը', () => NHR.open({ page: 'employee', id: d.empId, tab: 'other' }), 'sm', 'edit')) : null)]
+              : u.hist ? ['Անձնագիրը փաստաթղթում', `№ ${u.doc.passport || u.doc.other} (նախկին փաստաթուղթ՝ գործում էր ${NHR.fmtDate(d.date)}-ին)`] : null)(NHR.idDocUsed(d)),
             NHR.driveDocRow(d),
             miss.size ? ['Չլրացված տվյալներ', h('div', { style: { display: 'grid', gap: '6px' } }, h('span', { style: { color: 'var(--bad)' } }, [...miss].map(k => tagLabel(k)).join(', ')),
               canEdit ? h('div', { class: 'row' },
@@ -11549,7 +11891,9 @@ window.NHR_EMBASSIES = [
         const dupTabel = existing.find(e => e.tabel === r.tabel);
         const samePerson = S.people.find(p => p.ssn && p.ssn === r.ssn);
         const otherRecs = IMP.rows.filter(x => x !== r && x.ssn && x.ssn === r.ssn).length;
-        return { r, dupTabel, samePerson, otherRecs, warns: checks(r, o, IMP.rows) };
+        /* HR-ում արդեն եղած անձի փաստաթուղթը ՀԾ-ինից տարբեր է՝ ինչ կլինի ներմուծելիս */
+        const idw = samePerson ? NHR.idDocPlanText(samePerson, Object.assign({}, r.idDoc, { type: mapCode(o, 'idDocType', r.idDoc.type) })) : '';
+        return { r, dupTabel, samePerson, otherRecs, warns: checks(r, o, IMP.rows).concat(idw ? [idw] : []) };
       });
       const warnCount = rows.filter(x => x.warns.length).length;
       body = [panel('4. Նախադիտում', h('div', { style: { display: 'grid', gap: '14px' } },
@@ -11612,7 +11956,10 @@ window.NHR_EMBASSIES = [
         education: r.education.map(e => ({ level: '', institute: [e.text, e.institute].filter(Boolean).join(', '), start: e.start, end: e.end, diploma: e.diploma })),
         military: r.military, depositAcc: NHR.normAccount(r.depositAcc),
         family: r.family.map(f => ({ relation: mapCode(o, 'familyRelation', f.relation), name: f.name, birthday: '' })), hc: { attachments: r.attachments } };
-      if (p) Object.assign(p, pdata); else { p = Object.assign(NHR.blankPerson(), pdata, { id: NHR.uid('p') }); S.people.push(p); }
+      /* Փաստաթուղթը չի վերագրվում, այլ համադրվում է (ոչինչ չի կորչում)․ ՀԾ-ում հին փաստաթուղթ լինելիս HR-ի գործողը մնում է,
+         նորը՝ դառնում է գործող (նախկինը՝ «Նախկին փաստաթղթեր»), ավելի հինը՝ ավելանում է նախկինների մեջ (ավելի վաղ ամսաթվով փաստաթղթերի համար) */
+      if (p) { const inc = pdata.idDoc; delete pdata.idDoc; Object.assign(p, pdata); NHR.idDocMerge(p, inc); }
+      else { p = Object.assign(NHR.blankPerson(), pdata, { id: NHR.uid('p') }); S.people.push(p); }
       const fee = r.fees.find(f => f.isDefault) || r.fees[0] || {};
       const hist = [{ from: r.dateOn, source: 'import', dept: mapCode(o, 'org:departments', r.dept), position: mapCode(o, 'org:positions', r.position), posStart: r.posStart || r.dateOn, desc: '',
         feeCode: mapCode(o, 'org:feeTypes', fee.code || ''), amount: fee.amount || 0, regime: '1', workWeek: o.hr.workWeek, restDays: o.hr.restDays.slice(), combination: '1', workplace: (o.activityAddresses[0] || {}).id || '',
@@ -12776,32 +13123,89 @@ window.NHR_EMBASSIES = [
   const docsOf = (o) => S().documents.filter(d => d.orgId === o.id && d.status === 'approved' && NHR.docHasText(d));
   const personsOf = (o) => [...new Set(S().employments.filter(e => e.orgId === o.id).map(e => e.personId))].filter(pid => NHR.person(pid));
 
-  /* PDF-ը նոր ներդիրում. պահված չէ (կամ պահվում է)՝ սպասում է պահմանը։ Ներդիրը բացվում է անմիջապես (թե չէ բրաուզերը կարգելի) */
-  const openPdf = (d, b, download) => {
-    const f = NHR.driveFile(d.id), url = (x) => download ? `https://drive.google.com/uc?export=download&id=${encodeURIComponent(x.id)}` : x.url;
-    if (f && !NHR.driveSaving(d.id)) { openUrl(url(f)); return; }
-    const w = window.open('about:blank', '_blank');
-    if (b) { b.disabled = true; }
-    NHR.toast('Պահպանվում է Google Drive-ում…');
-    NHR.driveEnsure(d).then(x => { if (w) { w.opener = null; w.location.href = url(x); } }, e => { if (w) w.close(); NHR.toast('Չհաջողվեց․ ' + e.message); })
-      .then(() => { if (b) b.disabled = false; NHR.rerenderKeep(); });
+  /* ---------- PDF՝ բրաուզերի PDF դիտիչում (կամ Adobe-ում), ներբեռնում և տպում՝ անմիջապես ----------
+     Google Drive-ում պահված PDF-ը բերվում է սերվերից (driveGet) և բացվում է որպես ֆայլ, ոչ թե Google Drive-ի դիտման էջում։
+     Պահված չէ (կամ պահվում է)՝ նախ սպասում է պահմանը */
+  const pdfCache = {};
+  const b64Blob = (b64, type) => { const bin = atob(b64), bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); return new Blob([bytes], { type }); };
+  NHR.drivePdf = async (d) => {
+    const f = await NHR.driveEnsure(d);
+    if (!f || !f.id) throw new Error('PDF-ը պահված չէ Google Drive-ում');
+    const c = pdfCache[d.id];
+    if (c && c.fid === f.id && c.at === f.at) return c;
+    let r;
+    try { r = await NHR.api('driveGet', { docId: d.id }); }
+    catch (e) { if (/Անհայտ գործողություն/.test(e.message)) { const x = new Error('Թարմացրեք սերվերը (Code.gs 1.5.7)․ առայժմ PDF-ը բացվում է Google Drive-ում'); x.url = f.url; throw x; } throw e; }
+    const x = { fid: f.id, at: f.at, name: r.name || (NHR.docFileName(d) + '.pdf'), blob: b64Blob(r.b64, 'application/pdf') };
+    pdfCache[d.id] = x;
+    return x;
   };
-  /* PDF՝ Drive-ում պահվածը (չկա՝ պահում է և բացում), Word՝ ներբեռնում */
+  /* Փաստաթղթի ջնջում սերվերում՝ Tasks-ի վճարման թասքը փակվում է, Google Drive-ի PDF-ը՝ աղբարկղ, գրառումները ջնջվում են (Code.gs՝ docDrop) */
+  NHR.docDropServer = async (d) => {
+    await settle();
+    let r;
+    try { r = await NHR.api('docDrop', { docId: d.id }); }
+    catch (e) { if (/Անհայտ գործողություն/.test(e.message)) throw new Error('Թարմացրեք սերվերը (Code.gs 1.5.7)․ փաստաթուղթը առայժմ մնաց չեղարկված'); throw e; }
+    NHR.serverApply(r.recs);
+    delete pdfCache[d.id];
+    return r;
+  };
+  /* Տպել՝ անտեսանելի շրջանակում բացված PDF-ից (բրաուզերի տպելու պատուհանը)։ Firefox-ում և Safari-ում՝ PDF-ը նոր ներդիրում */
+  const printBlob = (blob) => {
+    const url = URL.createObjectURL(blob), ua = navigator.userAgent || '';
+    if (/Firefox\//.test(ua) || (/Safari\//.test(ua) && !/Chrome\/|Chromium\//.test(ua))) { window.open(url, '_blank'); setTimeout(() => URL.revokeObjectURL(url), 300000); return; }
+    document.querySelectorAll('iframe.pdf-print').forEach(x => x.remove());
+    const fr = h('iframe', { class: 'pdf-print', src: url, title: 'PDF', 'aria-hidden': 'true', tabindex: '-1' });
+    fr.onload = () => setTimeout(() => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { window.open(url, '_blank'); } }, 300);
+    document.body.appendChild(fr);
+    setTimeout(() => { fr.remove(); URL.revokeObjectURL(url); }, 30 * 60 * 1000);
+  };
+  const saveBlob = (blob, name) => {
+    const url = URL.createObjectURL(blob), a = h('a', { href: url, download: name, hidden: true });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
+  /* how՝ open (բացել), download (ներբեռնել), print (տպել)։ Նոր ներդիրը բացվում է անմիջապես (թե չէ բրաուզերը կարգելի) */
+  NHR.pdfAction = (d, how, b) => {
+    let w = null;
+    if (how === 'open') {
+      w = window.open('', '_blank');
+      if (w) { try { w.document.title = 'PDF'; w.document.body.innerHTML = '<p style="font:15px system-ui,sans-serif;color:#555;padding:28px">PDF-ը բեռնվում է…</p>'; } catch (e) { /* ոչինչ */ } }
+    }
+    if (b) b.disabled = true;
+    const slow = setTimeout(() => NHR.toast(NHR.driveFile(d.id) && !NHR.driveSaving(d.id) ? 'PDF-ը բեռնվում է…' : 'Պահպանվում է Google Drive-ում…'), 500);
+    NHR.drivePdf(d).then((x) => {
+      if (how === 'download') saveBlob(x.blob, x.name);
+      else if (how === 'print') printBlob(x.blob);
+      else {
+        const url = URL.createObjectURL(x.blob);
+        if (w && !w.closed) w.location.href = url;
+        else if (!window.open(url, '_blank')) NHR.toast('Բրաուզերը արգելեց նոր ներդիրը․ թույլատրեք այս կայքի ելնող պատուհանները (pop-ups) կամ սեղմեք «Ներբեռնել»');
+        setTimeout(() => URL.revokeObjectURL(url), 300000);
+      }
+    }, (e) => {
+      if (w && !w.closed) { if (e.url) w.location.href = e.url; else w.close(); }
+      else if (e.url) window.open(e.url, '_blank', 'noopener');
+      NHR.toast(e.url ? e.message : 'Չհաջողվեց․ ' + e.message);
+    }).then(() => { clearTimeout(slow); if (b) b.disabled = false; NHR.rerenderKeep(); });
+  };
+  /* PDF-ի կոճակները՝ փաստաթղթի էջում (Տպել, PDF, Ներբեռնել) և Word */
   NHR.docFileButtons = (d) => {
     const o = NHR.org(d.orgId), f = NHR.driveFile(d.id), text = NHR.docHasText(d);
-    if (!NHR.serverMode) return [h('button', { class: 'btn', disabled: true, title: 'PDF և Word՝ ' + NOSRV }, 'PDF'), h('button', { class: 'btn', disabled: true, title: 'PDF և Word՝ ' + NOSRV }, 'Word')];
+    if (!NHR.serverMode) return ['Տպել', 'PDF', 'Ներբեռնել', 'Word'].map(t => h('button', { class: 'btn', disabled: true, title: `${t}՝ ${NOSRV}` }, t));
     const canSave = d.status === 'approved' && text && NHR.can('edit') && !!NHR.driveUrlOf(o);
-    const pdfTitle = f ? 'Բացել Google Drive-ում պահված PDF-ը' : !text ? 'Այս փաստաթուղթը տեքստ չունի' : d.status === 'cancelled' ? 'Չեղարկված փաստաթուղթը Google Drive-ում չի պահվում'
-      : d.status !== 'approved' ? 'PDF-ը պահվում է հաստատելուց հետո' : !NHR.can('edit') ? 'PDF-ը դեռ պահված չէ Google Drive-ում'
-      : !NHR.driveUrlOf(o) ? 'Կազմակերպության քարտում («HR կարգավորումներ») նշեք Google Drive-ի HR թղթապանակը' : 'Պահպանել Google Drive-ում և բացել';
-    const pdf = h('button', { class: 'btn', type: 'button', disabled: f || canSave ? null : true, title: pdfTitle, onclick: (ev) => openPdf(d, ev.currentTarget) }, NHR.icon('download'), 'PDF');
+    const ok = d.status !== 'draft' && (!!f || canSave);
+    const why = d.status === 'draft' ? 'PDF-ը կազմվում է հաստատելուց հետո' : !text ? 'Այս փաստաթուղթը տեքստ չունի'
+      : d.status === 'cancelled' && !f ? 'Չեղարկված փաստաթուղթը Google Drive-ում չի պահվում' : !NHR.can('edit') && !f ? 'PDF-ը դեռ պահված չէ Google Drive-ում'
+      : !NHR.driveUrlOf(o) && !f ? 'Կազմակերպության քարտում («HR կարգավորումներ») նշեք Google Drive-ի HR թղթապանակը' : '';
+    const mk = (how, label, icon, title) => h('button', { class: 'btn', type: 'button', disabled: ok ? null : true, title: ok ? title : why, 'data-pdf': how, onclick: (ev) => NHR.pdfAction(d, how, ev.currentTarget) }, NHR.icon(icon), label);
     const canWord = text && NHR.can('edit');
     const word = h('button', { class: 'btn', type: 'button', disabled: canWord ? null : true, title: canWord ? 'Ներբեռնել Word (.docx)' : !text ? 'Այս փաստաթուղթը տեքստ չունի' : 'Հասանելի չէ ձեր դերի համար', onclick: async (ev) => {
       const b = ev.currentTarget; b.disabled = true; const t = b.lastChild.nodeValue; b.lastChild.nodeValue = 'Պատրաստվում է…';
       try { await NHR.driveWord(d); } catch (e) { NHR.toast('Word-ը պատրաստել չհաջողվեց․ ' + e.message); }
       b.disabled = false; b.lastChild.nodeValue = t;
     } }, NHR.icon('download'), 'Word');
-    return [pdf, word];
+    return [mk('print', 'Տպել', 'print', 'Տպել PDF-ը'), mk('open', 'PDF', 'eye', 'Բացել PDF-ը (բրաուզերում կամ Adobe-ում)'), mk('download', 'Ներբեռնել', 'download', 'Ներբեռնել PDF-ը'), word];
   };
   /* «Տվյալներ» վահանակի տողը */
   NHR.driveDocRow = (d) => {
@@ -12811,9 +13215,10 @@ window.NHR_EMBASSIES = [
     const resave = (ev) => { ev.currentTarget.disabled = true; (f ? NHR.driveResave(d) : NHR.driveEnsure(d)).then(() => NHR.toast('Պահպանվեց Google Drive-ում'), e => NHR.toast('Չհաջողվեց․ ' + e.message)).then(() => NHR.rerenderKeep()); NHR.rerenderKeep(); };
     let v;
     if (busyNow) v = h('span', { class: 'muted' }, 'Պահպանվում է…');
+    else if (f && d.status === 'draft') v = h('span', { class: 'muted' }, 'Խմբագրվում է․ PDF-ը կփոխարինվի նորից հաստատելիս');
     else if (f) v = h('div', { style: { display: 'grid', gap: '6px' } },
       h('span', null, f.cancelled ? 'Պահված է («ՉԵՂԱՐԿՎԱԾ»)' : 'Պահված է', h('span', { class: 'muted' }, ` · ${NHR.fmtDT(f.at)}`)),
-      h('div', { class: 'row', style: { gap: '6px', flexWrap: 'nowrap' } }, h('button', { class: 'btn sm', type: 'button', title: 'Բացել PDF-ը Google Drive-ում', onclick: () => openUrl(f.url) }, NHR.icon('ext'), 'PDF'),
+      h('div', { class: 'row', style: { gap: '6px', flexWrap: 'nowrap' } }, h('button', { class: 'btn sm', type: 'button', title: 'Բացել PDF-ը (բրաուզերում կամ Adobe-ում)', onclick: (ev) => NHR.pdfAction(d, 'open', ev.currentTarget) }, NHR.icon('eye'), 'PDF'),
         f.folderUrl ? h('button', { class: 'icon-btn', type: 'button', title: 'Բացել աշխատակցի թղթապանակը', 'aria-label': 'Թղթապանակը', onclick: () => openUrl(f.folderUrl) }, NHR.icon('folder')) : null,
         canEdit && d.status === 'approved' ? h('button', { class: 'icon-btn', type: 'button', title: 'Կազմել PDF-ը նորից (նախորդը կփոխարինվի)', 'aria-label': 'Նորից', onclick: resave }, NHR.icon('sync')) : null));
     else if (d.status !== 'approved') v = h('span', { class: 'muted' }, 'Պահվում է հաստատելուց հետո');
@@ -12938,19 +13343,19 @@ window.NHR_EMBASSIES = [
       docs.length ? table([
         { th: 'Ամսաթիվ', cls: 'code', get: d => NHR.fmtDate(d.date) },
         { th: 'Փաստաթուղթ', get: d => h('div', null, h('span', { class: 'tag' }, d.code), ' ', NHR.docDef(d.code).name, h('span', { class: 'sub' }, NHR.docNumberText(d))) },
-        { th: 'Drive', get: d => { const f = NHR.driveFile(d.id); return f ? h('a', { href: f.url, target: '_blank', rel: 'noopener', onclick: (ev) => ev.stopPropagation() }, f.cancelled ? 'PDF (չեղարկված)' : 'PDF')
+        { th: 'Drive', get: d => { const f = NHR.driveFile(d.id); return f ? h('a', { href: '#', title: 'Բացել PDF-ը', onclick: (ev) => { ev.preventDefault(); ev.stopPropagation(); NHR.pdfAction(d, 'open'); } }, f.cancelled ? 'PDF (չեղարկված)' : 'PDF')
           : d.status === 'approved' ? h('span', { class: 'muted' }, 'պահված չէ') : h('span', { class: 'muted' }, '—'); } }
       ], docs, { onRow: d => NHR.open({ page: 'doc', id: d.id }) }) : h('div', { class: 'muted' }, 'Հաստատված փաստաթղթեր դեռ չկան')));
   };
   /* Ուղարկելու պատուհանում՝ տպել և ներբեռնել Drive-ում պահված PDF-ը */
   NHR.drivePdfIcons = (d) => {
     const f = NHR.serverMode ? NHR.driveFile(d.id) : null;
-    const can = !!f || (NHR.serverMode && d.status === 'approved' && NHR.docHasText(d) && NHR.can('edit') && !!NHR.driveUrlOf(NHR.org(d.orgId)));
-    const why = !NHR.serverMode ? NOSRV : !NHR.driveUrlOf(NHR.org(d.orgId)) ? 'Կազմակերպության քարտում նշեք Google Drive-ի HR թղթապանակը' : 'PDF-ը դեռ պահված չէ Google Drive-ում';
+    const can = d.status !== 'draft' && (!!f || (NHR.serverMode && d.status === 'approved' && NHR.docHasText(d) && NHR.can('edit') && !!NHR.driveUrlOf(NHR.org(d.orgId))));
+    const why = !NHR.serverMode ? NOSRV : d.status === 'draft' ? 'PDF-ը կազմվում է հաստատելուց հետո' : !NHR.driveUrlOf(NHR.org(d.orgId)) ? 'Կազմակերպության քարտում նշեք Google Drive-ի HR թղթապանակը' : 'PDF-ը դեռ պահված չէ Google Drive-ում';
     const off = (ic, label) => h('button', { class: 'icon-btn', disabled: true, title: `${label} · ${why}`, 'aria-label': label }, NHR.icon(ic));
     if (!can) return [off('print', 'Տպել'), off('download', 'Ներբեռնել')];
-    return [h('button', { class: 'icon-btn', type: 'button', title: 'Բացել PDF-ը (տպելու համար)', 'aria-label': 'Տպել', onclick: (ev) => openPdf(d, ev.currentTarget) }, NHR.icon('print')),
-      h('button', { class: 'icon-btn', type: 'button', title: 'Ներբեռնել PDF-ը', 'aria-label': 'Ներբեռնել', onclick: (ev) => openPdf(d, ev.currentTarget, true) }, NHR.icon('download'))];
+    return [h('button', { class: 'icon-btn', type: 'button', title: 'Տպել PDF-ը', 'aria-label': 'Տպել', onclick: (ev) => NHR.pdfAction(d, 'print', ev.currentTarget) }, NHR.icon('print')),
+      h('button', { class: 'icon-btn', type: 'button', title: 'Ներբեռնել PDF-ը', 'aria-label': 'Ներբեռնել', onclick: (ev) => NHR.pdfAction(d, 'download', ev.currentTarget) }, NHR.icon('download'))];
   };
 })();
 
