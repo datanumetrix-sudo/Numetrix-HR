@@ -993,7 +993,7 @@ input.bad { border-color: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, v
 <noscript><p style="padding:24px">Numetrix HR-ը աշխատում է միայն JavaScript-ով։</p></noscript>
 <script>window.NHR_SITE = true;</script>
 <script src="config.js"></script>
-<script>window.NHR_BUILD = '358ccd9e08';</script>
+<script>window.NHR_BUILD = '17096310a0';</script>
 <script>
 /* Numetrix HR — ընդհանուր տեղեկատուներ, որոնք եկել են ՀԾ-ից կամ ստանդարտից։
    Համայնքներ՝ 930 տող ՀԾ-ի նկարներից (առանց ԼՂՀ-ի), երկրներ՝ ISO 3166 թվային կոդեր։ */
@@ -2040,8 +2040,14 @@ window.NHR_DEMO = function () {
   }
   S = load();
   const REFS_BASE = {}; for (const k in REFS) REFS_BASE[k] = REFS[k].rows.slice();
-  /* Տեղում ավելացված ընդհանուր տեղեկատուների տողերը պահվում են S.refAdds-ում */
-  NHR.applyRefAdds = () => { for (const k in REFS_BASE) REFS[k].rows = REFS_BASE[k].concat(((S.refAdds || {})[k]) || []); };
+  /* Ընդհանուր տեղեկատուներ. տեղում ավելացված տողերը՝ S.refAdds-ում, ծրագրի ցանկի տողերի փոփոխությունները (անվանում, ՀԾ կոդ, ակտիվ)
+     և ջնջումները՝ S.refEdits[ցանկ][կոդ]-ում (ծրագրի նոր տարբերակում ցանկը թարմանալիս՝ փոփոխությունները մնում են) */
+  NHR.applyRefAdds = () => {
+    for (const k in REFS_BASE) {
+      const ed = (S.refEdits || {})[k] || {};
+      REFS[k].rows = REFS_BASE[k].filter(r => !(ed[r.code] && ed[r.code].del)).map(r => (ed[r.code] ? Object.assign({}, r, ed[r.code]) : r)).concat(((S.refAdds || {})[k]) || []);
+    }
+  };
   NHR.applyRefAdds();
   if (!S.holidays) S.holidays = NHR.defaultHolidays.slice();
   NHR.state = () => S;
@@ -2843,6 +2849,27 @@ window.NHR_DEMO = function () {
     S.refAdds = S.refAdds || {}; (S.refAdds[key] = S.refAdds[key] || []).push(row);
     NHR.applyRefAdds(); NHR.save(); return row.code;
   };
+  /* Ընդհանուր տեղեկատուի տողի փոփոխություն և ջնջում. ավելացվածը՝ ուղղակի, ծրագրի ցանկինը՝ S.refEdits-ով (կոդը չի փոխվում) */
+  NHR.refIsAdded = (key, code) => (((S.refAdds || {})[key]) || []).some(r => r.code === code);
+  NHR.refPatch = (key, code, patch) => {
+    const add = (((S.refAdds || {})[key]) || []).find(r => r.code === code);
+    if (add) Object.assign(add, patch);
+    else {
+      const p = Object.assign({}, patch); delete p.code;
+      S.refEdits = S.refEdits || {}; const e = (S.refEdits[key] = S.refEdits[key] || {});
+      e[code] = Object.assign({}, e[code] || {}, p);
+    }
+    NHR.applyRefAdds(); NHR.save();
+  };
+  NHR.refDelete = (key, code) => {
+    const adds = ((S.refAdds || {})[key]) || [], i = adds.findIndex(r => r.code === code);
+    if (i >= 0) adds.splice(i, 1);
+    else { S.refEdits = S.refEdits || {}; const e = (S.refEdits[key] = S.refEdits[key] || {}); e[code] = Object.assign({}, e[code] || {}, { del: true }); }
+    NHR.applyRefAdds(); NHR.save();
+  };
+  /* Որտեղ է օգտագործվում ընդհանուր տեղեկատուի կոդը (խմբագրվող ցանկերի համար) */
+  NHR.REF_USE = { professions: (code) => S.people.filter(p => String(p.profession || '') === String(code)).length };
+  NHR.refUsage = (key, code) => (NHR.REF_USE[key] ? NHR.REF_USE[key](code) : 0);
 
   /* ---------- Աշխատավարձից պահումներ և մաքուրից համախառնի հաշվարկ ---------- */
   /* 2025՝ դրոշմանիշային վճարը 5 աստիճանով (stampTiers՝ [մինչև, գումար], վերջինը՝ առանց սահմանի), առողջության ապահովագրավճար չկա (healthFrom՝ 0)։
@@ -3060,6 +3087,8 @@ window.NHR_DEMO = function () {
     return el;
   };
   NHR.refOpts = (key, withCode = true) => REFS[key].rows.filter(r => r.active).map(r => [r.code, withCode ? `${r.code} — ${r.name}` : r.name]);
+  /* Նույնը, բայց ընթացիկ արժեքը (եթե անջատված է կամ ջնջված)՝ նույնպես, որ քարտում չկորչի */
+  NHR.refOptsWith = (key, cur) => { const o = NHR.refOpts(key); if (cur && !o.some(x => x[0] === cur)) { const r = REFS[key].rows.find(x => x.code === cur); o.push([cur, r ? `${cur} — ${r.name} (անջատված)` : `${cur} (ցանկում չկա)`]); } return o; };
   NHR.orefOpts = (orgId, key) => NHR.oref(orgId, key).filter(r => r.active !== false).map(r => [r.code, `${r.code} — ${r.name}`]);
   /* Ժամ՝ ՀՀ:ՐՐ (24-ժամյա)․ «9»→09:00, «930»→09:30 */
   NHR.timeInput = (obj, key, o = {}) => {
@@ -3328,6 +3357,8 @@ window.NHR_DEMO = function () {
     const st = S();
     st.orgRefs = plain(st.orgRefs) ? st.orgRefs : {};
     for (const o of st.orgs) if (!st.orgRefs[o.id]) st.orgRefs[o.id] = { departments: [], positions: [], feeTypes: [] };
+    /* ընդհանուր տեղեկատուների ավելացումները և փոփոխությունները (ուրիշ օգտատիրոջից)՝ ցանկերում */
+    if (NHR.applyRefAdds) NHR.applyRefAdds();
     const vis = NHR.visibleOrgs().filter(o => o.served);
     if (!vis.find(o => o.id === st.currentOrgId)) st.currentOrgId = (vis[0] || NHR.visibleOrgs()[0] || { id: '' }).id;
   }
@@ -8582,7 +8613,7 @@ window.NHR_EMBASSIES = [
         field('Ազգանուն (լատինատառ)', inp(wp, 'latLast', { ro, onInput: mark, ph: NHR.latin ? NHR.latin(wp.last) : '' })),
         field('Սեռ', sel(wp, 'gender', NHR.refOpts('gender'), { ro, onChange: mark }), { xml: 'Gender' }),
         field('Ծննդյան ամսաթիվ', inp(wp, 'birthday', { ro, type: 'date', onInput: mark }), { xml: 'Birthday' }),
-        field('Մասնագիտություն', sel(wp, 'profession', NHR.refOpts('professions'), { ro, onChange: mark }), { xml: 'Profession' }),
+        field('Մասնագիտություն', sel(wp, 'profession', NHR.refOptsWith('professions', wp.profession), { ro, onChange: mark }), { xml: 'Profession' }),
         field('Քաղաքացիություն', combo(wp, 'citizenship', NHR.ref('countries').rows, { ro, onChange: mark })),
         field('Ազգություն', inp(wp, 'nationality', { ro, onInput: mark, ph: 'Կամովի' }), { xml: 'Nationality' })
       )),
@@ -11380,12 +11411,33 @@ window.NHR_EMBASSIES = [
   function parseList(xmlText) {
     const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
     if (doc.getElementsByTagName('parsererror').length) throw new Error('Ֆայլը XML չէ կամ վնասված է');
-    const out = { departments: [], positions: [], feeTypes: [] };
+    const out = { departments: [], positions: [], feeTypes: [], professions: [] };
     els(doc, 'Department').forEach(x => out.departments.push({ code: txt(x, 'Code'), name: txt(x, 'Name') }));
     els(doc, 'Position').forEach(x => out.positions.push({ code: txt(x, 'Code'), name: txt(x, 'Name') }));
     els(doc, 'WFee').forEach(x => out.feeTypes.push({ code: txt(x, 'Code'), name: txt(x, 'Name'), tabel: txt(x, 'TabelCode') }));
+    /* մասնագիտություններ՝ <Profession>՝ Code և Name ենթատարրերով (աշխատակցի <Profession>-ը միայն կոդ է) */
+    out.professions = codeNames(doc, ['Profession']);
     return out;
   }
+  /* ՀԾ-ի ցանկ՝ Code/Name ենթատարրերով կամ ատրիբուտներով. նախ նշված տարրերը, այլապես՝ ֆայլի միակ այդպիսի ցանկը */
+  const cnOf = (el) => ({ code: txt(el, 'Code') || el.getAttribute('Code') || el.getAttribute('code') || '', name: txt(el, 'Name') || el.getAttribute('Name') || el.getAttribute('name') || '' });
+  function codeNames(doc, tags, any) {
+    const uniq = (xs) => xs.filter((x, i, a) => x.code && x.name && a.findIndex(y => y.code === x.code) === i);
+    for (const tg of tags) { const xs = uniq(els(doc, tg).filter(el => kid(el, 'Code') || el.hasAttribute('Code') || el.hasAttribute('code')).map(cnOf)); if (xs.length) return xs; }
+    if (!any) return [];
+    const groups = {};
+    [...doc.getElementsByTagName('*')].forEach(el => {
+      if (['Employee', 'Department', 'Position', 'WFee'].includes(el.localName) || !(kid(el, 'Code') || el.hasAttribute('Code'))) return;
+      (groups[el.localName] = groups[el.localName] || []).push(cnOf(el));
+    });
+    const keys = Object.keys(groups);
+    return keys.length === 1 ? uniq(groups[keys[0]]) : [];
+  }
+  NHR.parseRefXml = (xmlText, tags) => {
+    const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+    if (doc.getElementsByTagName('parsererror').length) throw new Error('Ֆայլը XML չէ կամ վնասված է');
+    return codeNames(doc, tags, true);
+  };
   function checks(r, o, all) {
     const w = [];
     const words = r.fullName.split(/\s+/).filter(Boolean);
@@ -11444,20 +11496,21 @@ window.NHR_EMBASSIES = [
     let body;
     if (IMP.step === 1) {
       const L = IMP.lists;
-      const diffRows = L ? ['departments', 'positions', 'feeTypes'].flatMap(k => L[k].map(x => { const cur = NHR.oref(o.id, k).find(y => y.code === x.code); return { k, x, state: !cur ? 'new' : cur.name !== x.name ? 'changed' : 'same', cur }; })) : [];
+      const ours = (k) => k === 'professions' ? REFS.professions.rows : NHR.oref(o.id, k);
+      const diffRows = L ? ['departments', 'positions', 'feeTypes', 'professions'].flatMap(k => (L[k] || []).map(x => { const cur = ours(k).find(y => y.code === x.code) || (k === 'professions' ? ours(k).find(y => y.hc && y.hc === x.code) : null); return { k, x, state: !cur ? 'new' : cur.name !== x.name ? 'changed' : 'same', cur }; })) : [];
       body = [panel('1. Կազմակերպության ցանկերը ՀԾ-ից', h('div', { style: { display: 'grid', gap: '14px' } },
-        h('div', null, `Ներմուծումը կատարվում է ընտրված կազմակերպության համար՝ `, h('b', null, NHR.orgName(o)), `։ Բեռնեք ՀԾ-ից արտահանված ստորաբաժանումների, պաշտոնների և հավելումների տեսակների XML ֆայլերը (մեկ առ մեկ)։`),
+        h('div', null, `Ներմուծումը կատարվում է ընտրված կազմակերպության համար՝ `, h('b', null, NHR.orgName(o)), `։ Բեռնեք ՀԾ-ից արտահանված ստորաբաժանումների, պաշտոնների, հավելումների տեսակների և մասնագիտությունների XML ֆայլերը (մեկ առ մեկ)։ Մասնագիտությունների ցանկը ընդհանուր է բոլոր կազմակերպությունների համար։`),
         dropzone(IMP.listFile ? `Բեռնված է՝ ${IMP.listFile}` : 'Քաշեք XML ֆայլը այստեղ', '.xml', (file) => readFile(file, (t) => {
-          try { const p = parseList(t); if (!IMP.lists) IMP.lists = { departments: [], positions: [], feeTypes: [] }; for (const k in p) IMP.lists[k] = IMP.lists[k].concat(p[k].filter(x => !IMP.lists[k].some(y => y.code === x.code))); IMP.listFile = file.name; IMP.error = ''; }
+          try { const p = parseList(t); if (!IMP.lists) IMP.lists = { departments: [], positions: [], feeTypes: [], professions: [] }; for (const k in p) IMP.lists[k] = (IMP.lists[k] || []).concat(p[k].filter(x => !(IMP.lists[k] || []).some(y => y.code === x.code))); IMP.listFile = file.name; IMP.error = ''; }
           catch (e) { IMP.error = e.message; } NHR.rerender(); })),
         IMP.error ? h('div', { class: 'note bad' }, h('div', null, IMP.error)) : null,
         L ? table([
-          { th: 'Ցանկ', get: r => r.k === 'departments' ? 'Ստորաբաժանում' : r.k === 'positions' ? 'Պաշտոն' : 'Հավելման տեսակ' },
+          { th: 'Ցանկ', get: r => r.k === 'departments' ? 'Ստորաբաժանում' : r.k === 'positions' ? 'Պաշտոն' : r.k === 'professions' ? 'Մասնագիտություն' : 'Հավելման տեսակ' },
           { th: 'Կոդ', cls: 'code', get: r => r.x.code }, { th: 'Անվանում ՀԾ-ում', get: r => r.x.name },
           { th: 'Մեզ մոտ', get: r => r.state === 'new' ? chip('Նոր', 'acc') : r.state === 'changed' ? chip(`Անվանումը տարբեր է՝ ${r.cur.name}`, 'warn') : chip('Կա', 'ok') }
         ], diffRows) : null)),
         h('div', { class: 'row' }, h('div', { style: { flex: 1 } }),
-          L ? btn('Ավելացնել նորերը և անցնել առաջ', () => { const R = S.orgRefs[o.id]; for (const r of diffRows) { if (r.state === 'new') R[r.k].push(Object.assign({ hc: r.x.code, active: true }, r.x, r.k === 'positions' ? { conditions: [], benefits: [] } : {})); } NHR.save(); NHR.toast('Ցանկերը թարմացվեցին'); go(2); }, 'primary') : null,
+          L ? btn('Ավելացնել նորերը և անցնել առաջ', () => { const R = S.orgRefs[o.id]; for (const r of diffRows) { if (r.state !== 'new') continue; if (r.k === 'professions') NHR.addRefRow('professions', { code: r.x.code, name: r.x.name, hc: r.x.code, active: true }); else R[r.k].push(Object.assign({ hc: r.x.code, active: true }, r.x, r.k === 'positions' ? { conditions: [], benefits: [] } : {})); } NHR.save(); NHR.toast('Ցանկերը թարմացվեցին'); go(2); }, 'primary') : null,
           btn('Բաց թողնել', () => go(2), 'ghost'))];
     } else if (IMP.step === 2) {
       body = [panel('2. Աշխատակիցների XML', h('div', { style: { display: 'grid', gap: '14px' } },
@@ -11632,7 +11685,7 @@ window.NHR_EMBASSIES = [
       h('span', { class: 'cnt-sel' }, 'Ընտրված է ', h('b', null, n)),
       h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { picked.clear(); NHR.rerender(); } }, 'Մաքրել ընտրությունը'));
     /* Ջնջում (մեկ կամ մի քանի տող). չօգտագործվողները ջնջվում են, օգտագործվողները՝ ոչ («Ակտիվ» ունեցող ցանկերում դրանք կարելի է անջատել) */
-    const delPicked = (title, sel, isUsed, label, doDel, canOff) => {
+    const delPicked = (title, sel, isUsed, label, doDel, canOff, offFn) => {
       const free = sel.filter(r => !isUsed(r)), used = sel.filter(isUsed), x = { off: true };
       const names = (arr) => arr.slice(0, 12).map(label).join(', ') + (arr.length > 12 ? ` և ևս ${arr.length - 12}` : '');
       const offOk = canOff && used.some(r => r.active !== false);
@@ -11643,7 +11696,7 @@ window.NHR_EMBASSIES = [
         actions: [{ label: free.length || offOk ? 'Չեղարկել' : 'Փակել' }, free.length || offOk ? { label: free.length ? `Ջնջել (${free.length})` : 'Անջատել', cls: 'danger', onClick: () => {
           doDel(free);
           let off = 0;
-          if (offOk && x.off) used.forEach(r => { if (r.active !== false) { r.active = false; off++; } });
+          if (offOk && x.off) used.forEach(r => { if (r.active !== false) { if (offFn) offFn(r); else r.active = false; off++; } });
           picked.clear(); NHR.save(); NHR.rerender();
           NHR.toast([free.length ? `Ջնջվեց՝ ${free.length}` : '', off ? `անջատվեց՝ ${off}` : ''].filter(Boolean).join(', ') || 'Փոփոխություն չկա');
         } } : null].filter(Boolean) });
@@ -11769,11 +11822,79 @@ window.NHR_EMBASSIES = [
     if (/^cert:/.test(refSel) && NHR.certRefPanel) {
       right = NHR.certRefPanel(refSel);
     } else if (REFS[refSel]) {
-      const L = REFS[refSel];
+      const L = REFS[refSel], k = refSel, EDIT = !!NHR.REF_USE[k] && !L.closed && !ro;
       const rows = filt(L.rows);
+      /* Ակտիվ՝ պահվում է (ծրագրի ցանկի տողերը՝ S.refEdits-ով) */
+      const refActive = (r) => h('input', { type: 'checkbox', checked: r.active !== false, disabled: ro || L.closed ? true : null, 'aria-label': 'Ակտիվ', onclick: (e) => e.stopPropagation(),
+        onchange: (e) => { NHR.refPatch(k, r.code, { active: e.target.checked }); NHR.rerender(); } });
+      /* Խմբագրում և ջնջում (Մասնագիտություն). օգտագործվողը չի ջնջվում (կարելի է անջատել), ծրագրի ցանկի կոդը չի փոխվում */
+      const useN = (r) => NHR.refUsage(k, r.code);
+      const delRefs = (sel) => delPicked(sel.length > 1 ? `Ջնջել նշված տողերը (${L.name})` : 'Ջնջել տողը', sel, r => useN(r) > 0, r => `${r.code} — ${r.name}`,
+        (free) => free.forEach(r => NHR.refDelete(k, r.code)), true, (r) => NHR.refPatch(k, r.code, { active: false }));
+      const editRef = (r) => {
+        const added = NHR.refIsAdded(k, r.code), n = useN(r), x = { code: r.code, name: r.name, hc: r.hc || '', active: r.active !== false };
+        NHR.modal({ title: `${L.name}՝ ${r.code} — ${r.name}`, body: h('div', { style: { display: 'grid', gap: '12px' } },
+          h('div', { class: 'form' },
+            field('Կոդ', inp(x, 'code', { code: true, ro: !added || n > 0 }), { req: true, hint: !added ? 'Ծրագրի ցանկի կոդը չի փոխվում' : n ? 'Օգտագործվում է․ կոդը չի փոխվում' : 'Նույնը, ինչ ՀԾ-ում' }),
+            field('Անվանում', inp(x, 'name'), { req: true, cls: 'w2' }),
+            field('ՀԾ կոդ', inp(x, 'hc', { code: true }), { hint: 'Այս տողի կոդը ՀԾ-ի XML-ում' }),
+            h('div', { class: 'wall' }, chk(x, 'active', 'Ակտիվ (առաջարկվում է աշխատակցի քարտում)'))),
+          n ? h('div', { class: 'note info' }, NHR.icon('warn'), h('div', null, `Օգտագործվում է ${n} աշխատակցի քարտում․ նոր անվանումը կերևա այնտեղ էլ։`)) : null),
+          actions: [{ label: 'Ջնջել', cls: 'danger', onClick: () => { setTimeout(() => delRefs([r]), 0); } }, { label: 'Չեղարկել' },
+            { label: 'Պահպանել', cls: 'primary', onClick: () => {
+              x.code = String(x.code || '').trim(); x.name = String(x.name || '').trim(); x.hc = String(x.hc || '').trim() || x.code;
+              if (!x.code || !x.name) { NHR.toast('Լրացրեք կոդը և անվանումը'); return false; }
+              if (x.code !== r.code && L.rows.some(y => y.code === x.code)) { NHR.toast('Այս կոդով տող արդեն կա'); return false; }
+              NHR.refPatch(k, r.code, x); NHR.rerender(); NHR.toast('Պահպանվեց'); } }] });
+      };
+      /* ՀԾ-ից արտահանված ցանկ (XML)՝ համապատասխանեցում. նորերը ավելանում են, տարբերվող անվանումները փոխվում են,
+         ՀԾ-ում չեղածները՝ ջնջվում (օգտագործվողները՝ անջատվում)։ Ֆայլը կարդացվում է միայն բրաուզերում */
+      const importRef = () => {
+        const st = { file: '', list: null, error: '', upd: true, prune: true };
+        let close = null;
+        const draw = () => {
+          if (close) close();
+          const ours = L.rows, lst = st.list || [];
+          const rs = lst.map(x => { const cur = ours.find(y => y.code === x.code) || ours.find(y => y.hc && y.hc === x.code && !lst.some(z => z.code === y.code)) || null;
+            return { x, cur, state: !cur ? 'new' : cur.name !== x.name ? 'changed' : 'same' }; });
+          const extra = st.list ? ours.filter(y => !rs.some(r => r.cur === y)) : [], exUsed = extra.filter(y => useN(y) > 0), exFree = extra.filter(y => !useN(y));
+          const nNew = rs.filter(r => r.state === 'new').length, nCh = rs.filter(r => r.state === 'changed').length;
+          const what = st.list ? [nNew ? `նոր՝ ${nNew}` : '', nCh && st.upd ? `անվանում՝ ${nCh}` : '', st.prune && exFree.length ? `ջնջվող՝ ${exFree.length}` : '', st.prune && exUsed.length ? `անջատվող՝ ${exUsed.length}` : ''].filter(Boolean).join(', ') : '';
+          close = NHR.modal({ title: `${L.name}՝ ներմուծել ՀԾ-ից`, wide: true, body: h('div', { style: { display: 'grid', gap: '12px' } },
+            h('div', null, `Բեռնեք ՀԾ-ից արտահանված ${L.name.toLowerCase()}ների XML ֆայլը։ Ցանկը կհամապատասխանեցվի ՀԾ-ին՝ նույն կոդերով և անվանումներով։`),
+            dropzone(st.file ? `Բեռնված է՝ ${st.file}` : 'Քաշեք XML ֆայլը այստեղ', '.xml', (file) => readFile(file, (txt0) => {
+              try { const xs = NHR.parseRefXml(txt0, [L.xml || 'Profession']); if (!xs.length) throw new Error('Ֆայլում կոդով և անվանումով ցանկ չգտնվեց'); st.list = xs; st.file = file.name; st.error = ''; }
+              catch (e) { st.list = null; st.file = file.name; st.error = e.message; }
+              draw();
+            })),
+            st.error ? h('div', { class: 'note bad' }, h('div', null, st.error)) : null,
+            st.list ? h('div', null, h('b', null, `Ֆայլում՝ ${lst.length} տող`)) : null,
+            st.list ? table([
+              { th: 'Կոդ', cls: 'code', get: r => r.x.code }, { th: 'Անվանում ՀԾ-ում', get: r => r.x.name },
+              { th: 'Մեզ մոտ', get: r => r.state === 'new' ? chip('Նոր', 'acc') : h('div', null, r.state === 'changed' ? chip('Այլ անվանումով', 'warn') : chip('Կա', 'ok'),
+                r.state === 'changed' || r.cur.code !== r.x.code ? h('span', { class: 'sub' }, [r.state === 'changed' ? `«${r.cur.name}»` : '', r.cur.code !== r.x.code ? `մեր կոդը՝ ${r.cur.code}` : ''].filter(Boolean).join(', ')) : null) }
+            ], rs.slice(0, 300)) : null,
+            st.list && rs.length > 300 ? h('div', { class: 'muted small' }, `Ցուցադրված է 300 տող ${rs.length}-ից`) : null,
+            st.list && nCh ? chk(st, 'upd', `Փոխել տարբերվող անվանումները ՀԾ-ի անվանումներով (${nCh})`, { onChange: draw }) : null,
+            st.list && extra.length ? chk(st, 'prune', `Մեզ մոտ ՀԾ-ում չեղած ${extra.length} տող՝ ջնջել (${exFree.length})${exUsed.length ? `, իսկ աշխատակիցների քարտերում օգտագործվողները՝ անջատել (${exUsed.length})` : ''}`, { onChange: draw }) : null,
+            st.list && !what ? h('div', { class: 'note ok' }, NHR.icon('check'), h('div', null, 'Ցանկը արդեն համապատասխանում է ՀԾ-ին։')) : null),
+            actions: [{ label: what ? 'Չեղարկել' : 'Փակել' }, what ? { label: `Համապատասխանեցնել (${what})`, cls: 'primary', onClick: () => {
+              rs.forEach(r => {
+                if (r.state === 'new') NHR.addRefRow(k, { code: r.x.code, name: r.x.name, hc: r.x.code, active: true });
+                else if (r.state === 'changed' && st.upd) NHR.refPatch(k, r.cur.code, { name: r.x.name, hc: r.x.code, active: true });
+                else if (r.cur.hc !== r.x.code || r.cur.active === false) NHR.refPatch(k, r.cur.code, { hc: r.x.code, active: true });
+              });
+              if (st.prune) { exFree.forEach(y => NHR.refDelete(k, y.code)); exUsed.forEach(y => NHR.refPatch(k, y.code, { active: false })); }
+              NHR.save(); NHR.rerender(); NHR.toast(`Համապատասխանեցվեց՝ ${what}`);
+            } } : null].filter(Boolean) });
+        };
+        draw();
+      };
       right = panel(h('div', { class: 'row' }, h('h2', { class: 'sec' }, L.name), chip(L.source, (L.source === 'ՀԾ' ? 'stamp' : L.source === 'ստանդարտ' ? 'acc' : 'warn') + ' lbl'), L.xml ? h('span', { class: 'tag' }, L.xml) : null),
         h('div', { style: { display: 'grid', gap: '12px' } }, L.note ? h('div', { class: 'muted' }, L.note) : null, searchBox(L.rows.length),
+          EDIT ? bulkBar(L.rows.filter(r => picked.has(r.code)).length, () => delRefs(L.rows.filter(r => picked.has(r.code)))) : null,
           table([
+            EDIT ? cbCol(rows, r => r.code) : null,
             { th: L.basis ? 'Կետ' : 'Կոդ', cls: 'code', get: r => r.code },
             L.rows.some(x => x.place) ? { th: 'Հաստատություն', get: r => h('span', { class: 'small' }, r.place || '—') } : null,
             { th: L.basis ? 'Պաշտոններ' : 'Անվանում', get: r => h('div', null, r.name, r.verify ? [' ', chip('ստուգել', 'warn')] : null) },
@@ -11781,10 +11902,13 @@ window.NHR_EMBASSIES = [
             L.rows.some(x => x.doc != null) ? { th: 'Պայմանագրում', get: r => h('span', { class: 'muted' }, r.months ? `${r.months} (${NHR.numWords(r.months)}) ամիս` : (r.doc || '—')) } : null,
             refSel === 'communes' ? { th: 'Մարզ', get: r => NHR.refName('regions', r.region) } : null,
             L.basis ? null : { th: 'ՀԾ կոդ', cls: 'code', get: r => r.hc || h('span', { class: 'muted' }, '—') },
-            { th: 'Ակտիվ', get: r => activeToggle(r) }
-          ].filter(Boolean), rows.slice(0, 400), { empty: 'Չգտնվեց' }),
+            EDIT ? { th: 'Օգտագործվում է', get: r => { const n = useN(r); return n ? h('span', { class: 'small' }, `${n} աշխատակից`) : h('span', { class: 'muted small' }, 'չի օգտագործվում'); } } : null,
+            { th: 'Ակտիվ', get: r => refActive(r) },
+            EDIT ? { th: '', get: r => h('span', { class: 'row', style: { gap: '4px', flexWrap: 'nowrap' } }, btn('Փոխել', (ev) => { ev.stopPropagation(); editRef(r); }, 'ghost sm'),
+              btn('Ջնջել', (ev) => { ev.stopPropagation(); delRefs([r]); }, 'ghost sm danger')) } : null
+          ].filter(Boolean), rows.slice(0, 400), { empty: 'Չգտնվեց', onRow: EDIT ? (r) => editRef(r) : null }),
           rows.length > 400 ? h('div', { class: 'muted small' }, `Ցուցադրված է 400 տող ${rows.length}-ից․ օգտագործեք որոնումը։`) : null),
-        { actions: ro || L.closed ? null : btn('Նոր տող', () => addRowModal(L.rows, refSel === 'communes' ? { region: '' } : null), 'sm', 'plus') });
+        { actions: ro || L.closed ? null : [EDIT ? btn('Ներմուծել ՀԾ-ից (XML)', importRef, 'sm', 'import') : null, btn('Նոր տող', () => addRowModal(L.rows, refSel === 'communes' ? { region: '' } : null), 'sm', 'plus')] });
     } else if (refSel === 'org:departments' || refSel === 'org:feeTypes') {
       const k = refSel.slice(4), rows = S.orgRefs[o.id][k];
       right = panel(refSel === 'org:departments' ? 'Ստորաբաժանումներ' : 'Հավելումների տեսակներ', [bulkBar(rows.filter(r => picked.has(r.code)).length, () => delOrgMany(k)), table([
