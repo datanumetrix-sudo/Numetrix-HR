@@ -252,6 +252,8 @@ input[type=checkbox], input[type=radio] { accent-color: var(--accent); }
 .pdet > summary .chip { white-space: normal; line-height: 1.3; }
 /* «Լողացող» վերնագիր (app.js՝ stickySetup). Հետ, Պահպանել, Ջնջել, Հաստատել…՝ միշտ տեսանելի, ոլորելիս՝ սեղմ տեսքով */
 :root { --page-x: 23px; }
+/* Ոլորման «խարիսխը» (scroll anchoring) անջատված է. վերնագիրը սեղմվելիս Chrome-ը էջը ետ էր տանում վերև, և վերնագիրը թրթռում էր (ոլորել չէր լինում) */
+html { overflow-anchor: none; }
 .sticky-sent { flex: none; margin-bottom: -18px; }
 .sticky-head { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--top-h, 52px)); z-index: 15; background: var(--surface); margin: -8px calc(-1 * var(--page-x)); padding: 8px var(--page-x); }
 .page-head > .page-back { flex: 1 0 100%; margin-bottom: 2px; }
@@ -1003,7 +1005,7 @@ iframe.pdf-print { position: fixed; right: 0; bottom: 0; width: 1px; height: 1px
 <noscript><p style="padding:24px">Numetrix HR-ը աշխատում է միայն JavaScript-ով։</p></noscript>
 <script>window.NHR_SITE = true;</script>
 <script src="config.js"></script>
-<script>window.NHR_BUILD = '086c707247';</script>
+<script>window.NHR_BUILD = 'c4a7e4e4f2';</script>
 <script>
 /* Numetrix HR — ընդհանուր տեղեկատուներ, որոնք եկել են ՀԾ-ից կամ ստանդարտից։
    Համայնքներ՝ 930 տող ՀԾ-ի նկարներից (առանց ԼՂՀ-ի), երկրներ՝ ISO 3166 թվային կոդեր։ */
