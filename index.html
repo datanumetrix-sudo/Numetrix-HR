@@ -1005,7 +1005,7 @@ iframe.pdf-print { position: fixed; right: 0; bottom: 0; width: 1px; height: 1px
 <noscript><p style="padding:24px">Numetrix HR-ը աշխատում է միայն JavaScript-ով։</p></noscript>
 <script>window.NHR_SITE = true;</script>
 <script src="config.js"></script>
-<script>window.NHR_BUILD = 'd64c8de6a5';</script>
+<script>window.NHR_BUILD = '84eca66545';</script>
 <script>
 /* Numetrix HR — ընդհանուր տեղեկատուներ, որոնք եկել են ՀԾ-ից կամ ստանդարտից։
    Համայնքներ՝ 930 տող ՀԾ-ի նկարներից (առանց ԼՂՀ-ի), երկրներ՝ ISO 3166 թվային կոդեր։ */
@@ -3359,11 +3359,12 @@ window.NHR_DEMO = function () {
    Էջը դիմում է միայն իր սերվերին։ Գաղտնի բանալիներ և ստորագրություն այստեղ չկան. դրանք Code.gs-ում են։
    Մուտքը՝ Numetrix Tasks-ի կոճակով (#sso=…) կամ ադմինի բանալիով։ Սեսիան պահվում է միայն այս ներդիրում (sessionStorage)։
    Տվյալները չեն պահվում բրաուզերում. ամեն փոփոխություն ուղարկվում է սերվեր (միայն փոխված գրառումները),
-   իսկ ուրիշների փոփոխությունները բերվում են րոպեն մեկ։ Առանց հասցեի (նախատիպ)՝ այս ֆայլը ոչինչ չի անում։ */
+   իսկ ուրիշների (և Tasks-ից եկած) փոփոխությունները բերվում են 20 վայրկյանը մեկ։ Առանց հասցեի (նախատիպ)՝ այս ֆայլը ոչինչ չի անում։ */
 (function () {
   const NHR = window.NHR;
   if (!NHR.serverMode) return;
   const API = String(window.NHR_API_URL).trim();
+  NHR.apiUrl = API;
   const { h } = NHR;
   const SKEY = 'numetrix-hr-session';
   /* Հավաքածուներ. ARR՝ id-ով գրառումների ցուցակ, MAP՝ բանալիով օբյեկտ, LOCAL՝ միայն այս բրաուզերում։ Մնացածը՝ «_» (ամբողջությամբ) */
@@ -3372,7 +3373,7 @@ window.NHR_DEMO = function () {
   /* Google Drive-ի կապերը և Tasks-ի վճարման թասքերը փոխում է միայն սերվերը (էջը դրանք միայն կարդում է) */
   const SERVER_ONLY = ['driveFolders', 'driveFiles', 'payTasks'];
   const LOCAL = ['version', 'currentUserId', 'currentOrgId', 'build', 'syncConfig'];
-  const BATCH = 300, POLL_MS = 60000;
+  const BATCH = 300, POLL_MS = 20000; // 1.5.9. Tasks-ը փոփոխություններն անմիջապես ուղարկում է HR-ի սերվերին, էջը դրանք բերում է 20 վայրկյանը մեկ
   const K = (c, id) => c + '\u0001' + id;
 
   let sess = null;               // { token, exp, user: { id, name, role } }
@@ -3478,7 +3479,7 @@ window.NHR_DEMO = function () {
     if (!info) return;
     const st = S();
     st.syncConfig = { tasksUrl: info.tasksUrl || '', secretSet: !!info.secret, trigger: !!info.trigger, lastPull: info.lastOk || '', lastError: info.lastError || '',
-      lastErrorAt: info.lastErrorAt || '', since: info.since || '', v: info.v || '', orgV: info.orgV || 1, orgIn: info.orgIn || 1, lastCheck: (st.syncConfig || {}).lastCheck || '', checkOk: (st.syncConfig || {}).checkOk, checkError: (st.syncConfig || {}).checkError || '', payTasks: (st.syncConfig || {}).payTasks };
+      lastErrorAt: info.lastErrorAt || '', since: info.since || '', v: info.v || '', orgV: info.orgV || 1, orgIn: info.orgIn || 1, inAt: info.inAt || '', lastCheck: (st.syncConfig || {}).lastCheck || '', checkOk: (st.syncConfig || {}).checkOk, checkError: (st.syncConfig || {}).checkError || '', payTasks: (st.syncConfig || {}).payTasks };
   };
 
   /* ---------- պահպանում ---------- */
@@ -3569,10 +3570,13 @@ window.NHR_DEMO = function () {
   window.addEventListener('beforeunload', (e) => { if (started && (NHR.hasUnsaved() || (NHR.driveBusy && NHR.driveBusy()))) { e.preventDefault(); e.returnValue = ''; } });
 
   /* ---------- ուրիշների փոփոխությունները ---------- */
+  let syncAt = 0; // համաժամեցման վիճակը (Կարգավորումներ)՝ րոպեն մեկ
   async function poll(force) {
     if (!started || !sess || saving || reloading || (!force && document.hidden)) return;
     try {
-      const r = await NHR.api('changes', { since: seq, sync: true, acc: accStamp });
+      const wantSync = force || Date.now() - syncAt > 55000;
+      const r = await NHR.api('changes', { since: seq, sync: wantSync, acc: accStamp });
+      if (r.sync) syncAt = Date.now();
       if (r.reload) { await reloadAll(); return; }
       if (r.acc) accStamp = r.acc;
       let changed = false;
@@ -12646,13 +12650,21 @@ window.NHR_EMBASSIES = [
         }, e => NHR.toast('Չհաջողվեց․ ' + e.message));
       };
       const off = (b) => { if (!srv) { b.disabled = true; b.title = 'Աշխատում է սերվերին միացված տարբերակում'; } return b; };
+      const copyUrl = (u) => {
+        const done = () => NHR.toast('HR-ի հասցեն պատճենվեց');
+        const fallback = () => { const i = document.getElementById('hr-own-url'); if (i) { i.select(); try { document.execCommand('copy'); done(); } catch (e) { NHR.toast('Նշեք հասցեն և պատճենեք (Ctrl+C)'); } } };
+        try { navigator.clipboard.writeText(u).then(done, fallback); } catch (e) { fallback(); }
+      };
       body = [srv ? null : h('div', { class: 'note warn' }, NHR.icon('warn'), h('div', null, 'Նախատիպում Tasks-ի հետ կապ չկա․ այն աշխատում է սերվերին (HR-ի Apps Script) միացված տարբերակում (GitHub-ի էջ)։')),
         h('div', { class: 'cols' },
           panel(`Կապ Numetrix Tasks-ի հետ (sync v${C.orgV === 2 ? 2 : 1})`, h('div', { style: { display: 'grid', gap: '14px' } },
-            h('div', { class: 'form' }, field('Tasks-ի հասցե (Web app /exec)', inp(ts, 'tasksUrl', { ro: !srv || !can, ph: 'https://script.google.com/macros/s/…/exec' }), { cls: 'wall', hint: 'Numetrix Tasks-ի Apps Script-ի Web app-ի հասցեն' })),
+            h('div', { class: 'form' }, field('Tasks-ի հասցե (Web app /exec)', inp(ts, 'tasksUrl', { ro: !srv || !can, ph: 'https://script.google.com/macros/s/…/exec' }), { cls: 'wall', hint: 'Numetrix Tasks-ի Apps Script-ի Web app-ի հասցեն' }),
+              srv ? field('HR-ի հասցեն՝ Tasks-ի համար', h('div', { class: 'row', style: { flexWrap: 'nowrap' } }, h('input', { type: 'text', readonly: true, id: 'hr-own-url', value: NHR.apiUrl || '', class: 'code', onFocus: (e) => e.target.select() }),
+                btn('Պատճենել', () => copyUrl(NHR.apiUrl || ''), 'sm')), { cls: 'wall', hint: 'Այս հասցեն տեղադրեք Numetrix Tasks-ի Կարգավորումներում, որ Tasks-ը փոփոխություններն անմիջապես ուղարկի HR-ին (բանալին չի փոխվում և ոչ մի տեղ չի ուղարկվում)' }) : null),
             kv([['Tasks-ի բանալի (HR_SYNC_SECRET)', !srv ? '—' : C.secretSet ? 'Ստեղծված է' : 'Ստեղծված չէ․ աղյուսակում՝ «Numetrix HR → 2. Ստեղծել Tasks-ի բանալին»'],
               ['Ավտոմատ համաժամեցում', !srv ? '—' : C.trigger ? '15 րոպեն մեկ' : 'Միացված չէ․ աղյուսակում՝ «Numetrix HR → 3. Միացնել ավտոմատ համաժամեցումը»'],
               ['Վերջին հաջող համաժամեցում', C.lastPull ? NHR.fmtDT(C.lastPull) : '—'],
+              ['Վերջին ստացումը Tasks-ից', !srv ? '—' : C.inAt ? NHR.fmtDT(C.inAt) : 'Դեռ չկա (Tasks-ի Կարգավորումներում՝ HR-ի հասցեն)'],
               ['«Սպասող»', String(nPend)], ['Խնդիր ունեցող', String(nErr)],
               ['Վերջին սխալ', C.lastError ? `${C.lastError} (${NHR.fmtDT(C.lastErrorAt)})` : '—'],
               ['Կազմակերպությունների ձևաչափ', !srv ? '—' : `Tasks-ին ուղարկում ենք v${C.orgV === 2 ? 2 : 1}, Tasks-ից ստանում ենք v${C.orgIn === 2 ? 2 : 1}` + (C.orgV === 2 ? '' : ' (v2-ը կմիանա ինքնաբերաբար, երբ Tasks-ը պատրաստ լինի)')],
@@ -12667,7 +12679,8 @@ window.NHR_EMBASSIES = [
         panel('Հիմնադիրները (owners) Tasks-ում', h('div', { style: { display: 'grid', gap: '12px' } },
           h('div', { class: 'muted small' }, 'Կազմակերպության քարտի մասնակիցները (հիմնադիրները) Tasks-ին գնում են v2-ով՝ տեսակ, անուն, ՀՎՀՀ (կազմակերպության) կամ ՀԾՀ (անձի), բաժնեմաս։ Նրանք փոխվում են միայն HR-ում։ «Ստուգել»-ը համեմատում է HR-ի և Tasks-ի ցուցակները, «Ուղարկել հիմնադիրներին նորից»-ը ուղարկում է այն կազմակերպությունների հիմնադիրներին, որոնց Tasks-ում չկան կամ այլ են (օր.՝ լրացվել են նախքան Tasks-ը սկսեց պահել owners-ը)։'),
           h('div', { class: 'row' }, off(btn('Ստուգել', ownersCheck, '', 'search')), off(btn('Ուղարկել հիմնադիրներին նորից', () => ownersResend(null), '', 'sync'))))),
-        panel('Կանոններ', h('ul', { class: 'list-plain' }, ['Կազմակերպության քարտը պահելիս և տնօրենի պայմանագրի (1.2) հաստատելիս գրառումն անմիջապես ուղարկվում է Tasks։ Չհաջողվելու դեպքում նշվում է «սպասող» և ուղարկվում ավտոմատ՝ 15 րոպեն մեկ։',
+        panel('Կանոններ', h('ul', { class: 'list-plain' }, ['Tasks-ում կամ Պայմանագրերում արված փոփոխությունը Tasks-ը անմիջապես ուղարկում է HR (նույն գաղտնի բանալիով ստորագրված), իսկ HR-ի բաց էջը թարմանում է 20 վայրկյանը մեկ։ HR-ը նաև ինքն է ստուգում Tasks-ը 15 րոպեն մեկ (պահուստ)։ Tasks-ից ստացվածը Tasks-ին ետ չի ուղարկվում։',
+          'Կազմակերպության քարտը պահելիս և տնօրենի պայմանագրի (1.2) հաստատելիս գրառումն անմիջապես ուղարկվում է Tasks։ Չհաջողվելու դեպքում նշվում է «սպասող» և ուղարկվում ավտոմատ՝ 15 րոպեն մեկ։',
           'HR-ը Tasks-ին ուղարկում է միայն իր փոխած դաշտերը, ուստի Tasks-ում այդ ընթացքում արված փոփոխությունը հնով չի փոխարինվում։ Ստացված գրառումում դատարկ արժեքը լրացվածին չի փոխարինում, HR-ի դեռ չուղարկված փոփոխությունը չի կորչում, իսկ նույն դաշտը երկու կողմում փոխվելու դեպքում հաղթում է ավելի ուշը։ «Սպասարկում ենք»-ը կիրառվում է միայն ավելի նոր ժամով։',
           'Ղեկավարի պաշտոնը և էլ. փոստը համեմատվում են առանց մեծատառ/փոքրատառ տարբերության։ Բանկը որոշվում է հաշվեհամարով. նույն հաշվեհամարի դեպքում HR-ի անվանումը մնում է և ուղարկվում է Tasks։',
           'Գործունեության հասցեները միավորվում են ըստ հասցեի տեքստի (առանց մեծատառ/փոքրատառ տարբերության, «և» = «եվ»)։ Նորերն ավելանում են. հեռացումը չի փոխանցվում (ավելորդ հասցեն հեռացրեք բոլոր ծրագրերում), HR-ում հեռացվածը ետ չի ավելանում։ Հիմնադիրները (մասնակիցները) փոխվում են միայն HR-ում (Tasks-ում՝ միայն դիտելու). Tasks-ից դրանք լրացվում են միայն HR-ում դատարկ լինելու դեպքում, իսկ եթե Tasks-ում չկան կամ այլ են, HR-ը ուղարկում է իրենը։',
