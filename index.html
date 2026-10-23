@@ -1005,7 +1005,7 @@ iframe.pdf-print { position: fixed; right: 0; bottom: 0; width: 1px; height: 1px
 <noscript><p style="padding:24px">Numetrix HR-ը աշխատում է միայն JavaScript-ով։</p></noscript>
 <script>window.NHR_SITE = true;</script>
 <script src="config.js"></script>
-<script>window.NHR_BUILD = 'c4a7e4e4f2';</script>
+<script>window.NHR_BUILD = 'd64c8de6a5';</script>
 <script>
 /* Numetrix HR — ընդհանուր տեղեկատուներ, որոնք եկել են ՀԾ-ից կամ ստանդարտից։
    Համայնքներ՝ 930 տող ՀԾ-ի նկարներից (առանց ԼՂՀ-ի), երկրներ՝ ISO 3166 թվային կոդեր։ */
@@ -8328,6 +8328,19 @@ window.NHR_EMBASSIES = [
       h('div', { class: 'small' }, h('span', { class: 'muted' }, 'Պայմանագրում՝ '), `«…ի դեմս ${fs.name ? NHR.decl(fs.name, 'ի') : '…'}, որը գործում է ${fs.basis || '…'} հիման վրա…»`));
   };
 
+  /* Հիմնադիրները Tasks-ում (owners, v2)՝ ուղարկվա՞ծ են, թե ոչ (սերվերով տարբերակում) */
+  const ownersNote = (o) => {
+    if (!NHR.serverMode || !o || !o.sync || o.type === 'ԱՁ') return null;
+    const C = NHR.state().syncConfig || {}, n = (o.participants || []).filter(p => String(p.name || '').trim()).length;
+    if (!n && !o.sync.ownersAt) return null;
+    const lost = /owners/.test(o.sync.error || '');
+    const [t, color] = C.orgV !== 2 ? ['Tasks-ին չեն ուղարկվում․ Tasks-ը դեռ չի ընդունում v2 (հիմնադիրներ)', 'var(--warn)']
+      : lost ? [o.sync.error, 'var(--bad)']
+      : o.sync.status === 'pending' ? ['Կուղարկվեն Tasks', 'var(--muted)']
+      : o.sync.ownersAt ? [`Tasks-ում են՝ ${NHR.fmtDT(o.sync.ownersAt)}-ից`, 'var(--muted)']
+      : ['Tasks-ում դեռ չեն․ «Կարգավորումներ → Համաժամեցում» → «Ուղարկել հիմնադիրներին նորից»', 'var(--warn)'];
+    return h('div', { class: 'small', style: { color } }, t);
+  };
   NHR.views.org = function (r) {
     const S = NHR.state();
     /* Քարտը դեռ չի փոխվել, իսկ կազմակերպությունը փոխվել է այլ տեղից (Tasks, այլ օգտատեր)՝ ցույց ենք տալիս նորը */
@@ -8413,7 +8426,7 @@ window.NHR_EMBASSIES = [
       h('div', { class: 'form', style: { alignItems: 'end' } },
         field('Տեսակ', sel(p, 'kind', [['person', 'Ֆիզիկական անձ'], ['org', 'Կազմակերպություն']], { ro, empty: false, onChange: redraw })),
         field(p.kind === 'org' ? 'Անվանում' : 'Անուն Ազգանուն', inp(p, 'name', { ro, onChange: redraw })),
-        p.kind === 'org' ? field('ՀՎՀՀ', inp(p, 'tin', { ro, code: true })) : field('ՀԾՀ', inp(p, 'ssn', { ro, code: true, inputmode: 'numeric', onChange: redraw }),
+        p.kind === 'org' ? field('ՀՎՀՀ', inp(p, 'tin', { ro, code: true, onChange: redraw }), String(p.tin || '').trim() && !/^\d{6,8}$/.test(String(p.tin).replace(/\D/g, '')) ? { warn: true, hint: 'ՀՎՀՀ-ն 8 թվանշան է (այսպես Tasks-ին չի գնա)' } : {}) : field('ՀԾՀ', inp(p, 'ssn', { ro, code: true, inputmode: 'numeric', onChange: redraw }),
           p.ssn && !/^\d{10}$/.test(String(p.ssn).trim()) ? { warn: true, hint: 'ՀԾՀ-ն 10 թվանշան է' } : { hint: 'Պայմանագրերի (բաժնեմասի օտարում) համար' }),
         field('Բաժնեմաս, %', inp(p, 'share', { ro, type: 'number', min: 0, max: 100 })),
         ro ? null : h('div', null, btn('Հեռացնել', () => { o.participants.splice(i, 1); partOpen.clear(); redraw(); }, 'ghost danger sm'))),
@@ -8466,7 +8479,7 @@ window.NHR_EMBASSIES = [
             isIE ? null : roleBlock(o, 'head', ro, redraw))),
           isIE ? null : panel('Գլխավոր հաշվապահ', h('div', { style: { display: 'grid', gap: '14px' } }, personBlock(o, 'chief', ro, false), roleBlock(o, 'chief', ro, redraw)),
             { actions: h('span', { class: 'muted small' }, 'Tasks-ին՝ v2-ով') }),
-          isIE ? null : panel('Մասնակիցներ (հիմնադիրներ)', h('div', { style: { display: 'grid', gap: '12px' } }, partRows.length ? partRows : h('div', { class: 'muted' }, 'Մասնակից չկա․ անհրաժեշտ է 1.2 տնօրենի պայմանագրի համար'), o.type === 'Մասնաճյուղ' ? null : dirBlock),
+          isIE ? null : panel('Մասնակիցներ (հիմնադիրներ)', h('div', { style: { display: 'grid', gap: '12px' } }, partRows.length ? partRows : h('div', { class: 'muted' }, 'Մասնակից չկա․ անհրաժեշտ է 1.2 տնօրենի պայմանագրի համար'), o.type === 'Մասնաճյուղ' ? null : dirBlock, ownersNote(cur)),
             { actions: ro ? null : btn('Ավելացնել', () => { o.participants.push({ kind: 'person', name: '', tin: '', ssn: '', share: '' }); redraw(); }, 'sm', 'plus') }),
           panel('HR կարգավորումներ', h('div', { class: 'form' },
             field('Ներդրման ամսաթիվ', inp(o.hr, 'implDate', { ro, type: 'date' }), { hint: 'Արձակուրդի մնացորդների ելակետ (Զ.3)' }),
@@ -12602,6 +12615,36 @@ window.NHR_EMBASSIES = [
       const saveUrl = () => NHR.serverSetTasksUrl(String(ts.tasksUrl || '').trim()).then(() => { ts.tasksUrl = null; NHR.toast('Tasks-ի հասցեն պահպանվեց'); NHR.rerender(); }, e => NHR.toast(e.message));
       const ping = () => { NHR.toast('Ստուգվում է…'); NHR.serverPing().then(r => { NHR.toast(`Կապ կա․ Numetrix Tasks-ը պատասխանեց (v${r.v || 1})`); NHR.rerender(); }, e => { NHR.toast('Կապ չկա․ ' + e.message); NHR.rerender(); }); };
       const retry = () => NHR.serverOrgPush(pend.map(x => x.id)).then(r => { NHR.toast(r.note || 'Պատրաստ է'); NHR.rerender(); }, e => NHR.toast(e.message));
+      /* Հիմնադիրները (owners) Tasks-ում՝ ստուգում (Tasks-ի գրառումը get-ով) և նորից ուղարկում */
+      const ownTxt = (l) => (l || []).map(x => `${x.name}${x.share != null ? ` — ${String(x.share).replace('.', ',')}%` : ''}`).join('; ') || '—';
+      const OWN_ST = { same: ['Նույնն է', 'ok'], missing: ['Tasks-ում չկան', 'bad'], diff: ['Տարբեր են', 'warn'], v1: ['Չի երևում (Tasks-ը HR-ին տալիս է v1)', ''], noorg: ['Tasks-ում կազմակերպությունը չկա', 'warn'], error: ['Սխալ', 'bad'] };
+      const ownersResend = (ids) => NHR.confirm('Ուղարկել հիմնադիրներին նորից', (ids && ids.length ? `${ids.length} կազմակերպության հիմնադիրները կուղարկվեն Tasks ամբողջ ցուցակով։`
+        : 'HR-ը կստուգի բոլոր սպասարկվող կազմակերպությունները Tasks-ում և կուղարկի այն հիմնադիրներին, որոնք Tasks-ում չկան կամ այլ են (ամբողջ ցուցակով)։') + ' Մյուս դաշտերը չեն փոխվի։', 'Ուղարկել', () => {
+        NHR.toast('Ստուգվում և ուղարկվում է…');
+        NHR.api('ownersResend', { ids: ids || [] }).then(r => {
+          NHR.serverApply(r.recs);
+          NHR.toast(!r.total ? 'Հիմնադիրներ ունեցող կազմակերպություն չկա' : [`Ուղարկվեց՝ ${r.sent}`, r.same ? `արդեն Tasks-ում էին՝ ${r.same}` : '',
+            r.lost.length ? `Tasks-ը չպահեց՝ ${r.lost.length} (թարմացրեք Numetrix Tasks-ը)` : '', r.failed ? `կապի խնդիր՝ ${r.failed}` : '',
+            r.rejected.length + r.invalid.length ? `չընդունված՝ ${r.rejected.length + r.invalid.length}` : '', (r.noorg || []).length ? `Tasks-ում կազմակերպությունը չկա՝ ${r.noorg.length}` : ''].filter(Boolean).join(', '));
+          NHR.rerender();
+        }, e => NHR.toast('Չհաջողվեց․ ' + e.message));
+      });
+      const ownersCheck = () => {
+        NHR.toast('Ստուգվում է Tasks-ում…');
+        NHR.api('ownersCheck', {}).then(r => {
+          const bad = r.rows.filter(x => x.state === 'missing' || x.state === 'diff').map(x => x.id);
+          NHR.modal({ title: `Հիմնադիրները Tasks-ում (${r.rows.length})`, wide: true, body: h('div', { style: { display: 'grid', gap: '12px' } },
+            h('div', { class: 'muted small' }, `Tasks-ին ուղարկում ենք v${r.orgV}, Tasks-ից ստանում ենք v${r.sends}։ ` + (r.orgV !== 2 ? 'v1-ով հիմնադիրներ չեն ուղարկվում․ Tasks-ը պետք է ընդունի v2-ը։' : '')
+              + (r.sends !== 2 ? ' Tasks-ը HR-ին տալիս է v1, ուստի Tasks-ում պահված հիմնադիրները այստեղից չեն երևում։' : '')),
+            NHR.table([
+              { th: 'Կազմակերպություն', get: x => h('div', null, x.name, h('span', { class: 'sub code' }, x.tin)) },
+              { th: 'HR-ում', get: x => h('span', { class: 'small' }, ownTxt(x.hr)) },
+              { th: 'Tasks-ում', get: x => h('span', { class: 'small' }, x.tasks ? ownTxt(x.tasks) : '—') },
+              { th: 'Վիճակ', get: x => h('div', null, NHR.chip((OWN_ST[x.state] || [x.state])[0], (OWN_ST[x.state] || [])[1] || ''), x.error ? h('span', { class: 'sub' }, x.error) : null) }
+            ], r.rows, { empty: 'Հիմնադիրներ ունեցող սպասարկվող կազմակերպություն չկա' })),
+            actions: [{ label: 'Փակել' }].concat(bad.length && r.orgV === 2 ? [{ label: `Ուղարկել նորից (${bad.length})`, cls: 'primary', onClick: () => { setTimeout(() => ownersResend(bad), 0); } }] : []) });
+        }, e => NHR.toast('Չհաջողվեց․ ' + e.message));
+      };
       const off = (b) => { if (!srv) { b.disabled = true; b.title = 'Աշխատում է սերվերին միացված տարբերակում'; } return b; };
       body = [srv ? null : h('div', { class: 'note warn' }, NHR.icon('warn'), h('div', null, 'Նախատիպում Tasks-ի հետ կապ չկա․ այն աշխատում է սերվերին (HR-ի Apps Script) միացված տարբերակում (GitHub-ի էջ)։')),
         h('div', { class: 'cols' },
@@ -12621,10 +12664,13 @@ window.NHR_EMBASSIES = [
           panel('Սպասող և խնդրահարույց գրառումներ', table([
             { th: 'Կազմակերպություն', get: x => NHR.orgName(x) }, { th: 'Վիճակ', get: x => NHR.syncChip(x) }, { th: 'Մանրամասներ', get: x => x.sync.error || NHR.fmtDT(x.sync.updatedAt) }
           ], pend, { empty: 'Բոլորը համաժամեցված են', onRow: x => NHR.open({ page: 'org', id: x.id }) }), { flush: true, actions: pend.length && srv && NHR.can('edit') ? btn('Կրկնել հիմա', retry, 'sm', 'sync') : null })),
+        panel('Հիմնադիրները (owners) Tasks-ում', h('div', { style: { display: 'grid', gap: '12px' } },
+          h('div', { class: 'muted small' }, 'Կազմակերպության քարտի մասնակիցները (հիմնադիրները) Tasks-ին գնում են v2-ով՝ տեսակ, անուն, ՀՎՀՀ (կազմակերպության) կամ ՀԾՀ (անձի), բաժնեմաս։ Նրանք փոխվում են միայն HR-ում։ «Ստուգել»-ը համեմատում է HR-ի և Tasks-ի ցուցակները, «Ուղարկել հիմնադիրներին նորից»-ը ուղարկում է այն կազմակերպությունների հիմնադիրներին, որոնց Tasks-ում չկան կամ այլ են (օր.՝ լրացվել են նախքան Tasks-ը սկսեց պահել owners-ը)։'),
+          h('div', { class: 'row' }, off(btn('Ստուգել', ownersCheck, '', 'search')), off(btn('Ուղարկել հիմնադիրներին նորից', () => ownersResend(null), '', 'sync'))))),
         panel('Կանոններ', h('ul', { class: 'list-plain' }, ['Կազմակերպության քարտը պահելիս և տնօրենի պայմանագրի (1.2) հաստատելիս գրառումն անմիջապես ուղարկվում է Tasks։ Չհաջողվելու դեպքում նշվում է «սպասող» և ուղարկվում ավտոմատ՝ 15 րոպեն մեկ։',
           'HR-ը Tasks-ին ուղարկում է միայն իր փոխած դաշտերը, ուստի Tasks-ում այդ ընթացքում արված փոփոխությունը հնով չի փոխարինվում։ Ստացված գրառումում դատարկ արժեքը լրացվածին չի փոխարինում, HR-ի դեռ չուղարկված փոփոխությունը չի կորչում, իսկ նույն դաշտը երկու կողմում փոխվելու դեպքում հաղթում է ավելի ուշը։ «Սպասարկում ենք»-ը կիրառվում է միայն ավելի նոր ժամով։',
           'Ղեկավարի պաշտոնը և էլ. փոստը համեմատվում են առանց մեծատառ/փոքրատառ տարբերության։ Բանկը որոշվում է հաշվեհամարով. նույն հաշվեհամարի դեպքում HR-ի անվանումը մնում է և ուղարկվում է Tasks։',
-          'Գործունեության հասցեները միավորվում են ըստ հասցեի տեքստի (առանց մեծատառ/փոքրատառ տարբերության, «և» = «եվ»)։ Նորերն ավելանում են. հեռացումը չի փոխանցվում (ավելորդ հասցեն հեռացրեք բոլոր ծրագրերում), HR-ում հեռացվածը ետ չի ավելանում։ Մասնակիցների ցուցակը փոխարինվում է ամբողջությամբ. դատարկ ՀԾՀ-ն, ՀՎՀՀ-ն կամ բաժնեմասը լրացվածը չեն ջնջում։',
+          'Գործունեության հասցեները միավորվում են ըստ հասցեի տեքստի (առանց մեծատառ/փոքրատառ տարբերության, «և» = «եվ»)։ Նորերն ավելանում են. հեռացումը չի փոխանցվում (ավելորդ հասցեն հեռացրեք բոլոր ծրագրերում), HR-ում հեռացվածը ետ չի ավելանում։ Հիմնադիրները (մասնակիցները) փոխվում են միայն HR-ում (Tasks-ում՝ միայն դիտելու). Tasks-ից դրանք լրացվում են միայն HR-ում դատարկ լինելու դեպքում, իսկ եթե Tasks-ում չկան կամ այլ են, HR-ը ուղարկում է իրենը։',
           'Ղեկավարը (գլխավոր հաշվապահը) փոխված է, եթե անունը կամ ազգանունը տարբեր է (պակասող մասի լրացումը փոփոխություն չէ)։ Նոր անձի դեպքում նախկինը մնում է պատմության մեջ, անձնական տվյալները վերցվում են միայն նոր գրառումից, իսկ նախորդի անձնագիրը, ՀԾՀ-ն, հասցեն կամ հեռախոսը նորի վրա չեն գրվում։ Անվան ուղղումը (քարտում՝ «Ուղղում է», Tasks-ից՝ dirSame/chiefSame) նոր անձ չէ։',
           'Պատասխանատուն, պաշտոնը, ռեժիմը և սկիզբը գալիս են միայն Tasks-ից։ v2-ով Tasks-ին են գնում նաև գլխավոր հաշվապահը (ներառյալ փաստաթուղթը), մասնակիցները, լիազորության հիմքը, ղեկավարի քաղաքացիությունը, մայր կազմակերպությունը, ՁԿԴ-ն և հասցեների մարզ/համայնքը։ Լիազորագիրը գնում է միայն համարով և ամսաթվով միասին։ Երբ Tasks-ը սկսում է HR-ին ուղարկել v2, HR-ը մեկ անգամ բերում է բոլոր կազմակերպությունների v2 տվյալները։ Ղեկավարների պատմությունը և 1.2-ի նշանակման տվյալները մնում են միայն HR-ում։',
           'Tasks-ը նոր կազմակերպություն ստեղծում է միայն «Սպասարկում ենք» նշվածների համար։ Մայր կազմակերպության ՀՎՀՀ-ով մասնաճյուղը մնում է միայն HR-ում։',
